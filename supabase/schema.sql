@@ -103,3 +103,36 @@ drop policy if exists "Users manage own memberships" on public.community_members
 create policy "Users manage own memberships" on public.community_members for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Do not add a service-role key to client-side environment variables.
+
+
+-- Automatically provision a public profile when a user confirms/signs up.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  base_username text;
+begin
+  base_username := lower(regexp_replace(coalesce(new.raw_user_meta_data ->> 'username', 'member'), '[^a-z0-9_]', '', 'g'));
+  if char_length(base_username) < 3 then
+    base_username := 'member';
+  end if;
+
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    left(base_username, 21) || '_' || substr(replace(new.id::text, '-', ''), 1, 8),
+    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), base_username)
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
