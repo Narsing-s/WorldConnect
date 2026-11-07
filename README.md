@@ -42,3 +42,10 @@ Import this repository into Vercel, set the two `NEXT_PUBLIC_SUPABASE_*` environ
 - In Supabase Authentication → URL Configuration, set your Site URL and add redirect URLs for `http://localhost:3000/auth/callback` and your deployed domain's `/auth/callback`.
 - Run the updated SQL schema to install the profile-on-signup trigger. If you already ran the earlier schema, rerun the full updated script.
 - Email confirmation behavior follows your Supabase Auth settings. The app cannot send confirmation mail until a Supabase project is connected and its email provider/settings are configured.
+
+
+## Current Supabase connection
+
+The local environment example is prefilled with the public connection values previously shared for the Durgamma Menswear Supabase project. This means WorldConnect and Durgamma Menswear will share the same Supabase project and Auth user pool.
+
+**Important:** the WorldConnect starter SQL has not been run against that shared project. Its generic table names and auth-user trigger may conflict with existing Durgamma Menswear objects. Before enabling database features, the schema must be adapted to use WorldConnect-specific table and trigger names (or WorldConnect should use a separate Supabase project). The publishable key is intended for public client use; never add a service-role or secret key to this repository.
