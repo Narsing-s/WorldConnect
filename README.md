@@ -46,6 +46,6 @@ Import this repository into Vercel, set the two `NEXT_PUBLIC_SUPABASE_*` environ
 
 ## Current Supabase connection
 
-The local environment example is prefilled with the public connection values previously shared for the Durgamma Menswear Supabase project. This means WorldConnect and Durgamma Menswear will share the same Supabase project and Auth user pool.
+`.env.example` contains the Supabase project URL previously shared for Durgamma Menswear, while the publishable key remains a placeholder because its exact value has not been verified. WorldConnect will share that project's Auth user pool if you configure it this way.
 
-**Important:** the WorldConnect starter SQL has not been run against that shared project. Its generic table names and auth-user trigger may conflict with existing Durgamma Menswear objects. Before enabling database features, the schema must be adapted to use WorldConnect-specific table and trigger names (or WorldConnect should use a separate Supabase project). The publishable key is intended for public client use; never add a service-role or secret key to this repository.
+The WorldConnect SQL schema has been isolated with `wc_`-prefixed tables, policies, function, and auth trigger so it does not replace Durgamma Menswear's generic tables or trigger. Review `supabase/schema.sql` and run it in the Supabase SQL Editor to create the WorldConnect-specific objects. The new trigger creates rows in `wc_profiles` only. Never add a service-role or secret key to this repository.
