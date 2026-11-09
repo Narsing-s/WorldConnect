@@ -51,6 +51,6 @@ export default function OpportunitiesPage() {
       <button className="feature-primary" disabled={busy}>{busy?<LoaderCircle className="auth-spin"/>:"Publish opportunity"}</button>
     </form>}
     {notice&&<p className="feature-notice" role="status">{notice}</p>}
-    <section className="opportunity-list">{items.map(item=><article className="opportunity-card" key={item.id}><div className="opportunity-meta"><span>{item.opportunity_type}</span><time>{new Date(item.created_at).toLocaleDateString()}</time></div><h2>{item.title}</h2><p>{item.description}</p><div className="opportunity-footer"><span>{item.location} · {item.wc_profiles?.display_name||"Community member"}</span>{item.application_url&&<a href={item.application_url} target="_blank" rel="noreferrer">Apply / Learn more <ExternalLink size={14}/></a>}{userId===items.find(x=>x.id===item.id)?.wc_profiles?.username&&null}</div></article>)}</section>
+    <section className="opportunity-list">{items.map(item=><article className="opportunity-card" key={item.id}><div className="opportunity-meta"><span>{item.opportunity_type}</span><time>{new Date(item.created_at).toLocaleDateString()}</time></div><h2>{item.title}</h2><p>{item.description}</p><div className="opportunity-footer"><span>{item.location} · {item.wc_profiles?.display_name||"Community member"}</span>{item.application_url&&<a href={item.application_url} target="_blank" rel="noreferrer">Apply / Learn more <ExternalLink size={14}/></a>}</div></article>)}</section>
   </main>;
 }
