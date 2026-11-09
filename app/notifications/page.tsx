@@ -1,0 +1,16 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Bell, Heart, MessageCircle, UserPlus, CheckCheck, LoaderCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+type Notice={id:string;kind:string;message:string;created_at:string;read_at:string|null;wc_profiles?:{display_name:string;username:string}|null};
+export default function NotificationsPage(){
+ const [items,setItems]=useState<Notice[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState("");
+ useEffect(()=>{const supabase=createClient();if(!supabase){setError("Connect Supabase and run the database setup to enable notifications.");setLoading(false);return;}supabase.auth.getUser().then(async({data:{user}})=>{if(!user){window.location.href="/login";return;}const {data,error:queryError}=await supabase.from("wc_notifications").select("id,kind,message,created_at,read_at,wc_profiles:actor_id(display_name,username)").eq("recipient_id",user.id).order("created_at",{ascending:false}).limit(100);if(queryError)setError(queryError.message);else setItems((data||[]) as unknown as Notice[]);setLoading(false);});},[]);
+ async function markRead(id:string){const supabase=createClient();if(!supabase)return;const {error:updateError}=await supabase.from("wc_notifications").update({read_at:new Date().toISOString()}).eq("id",id);if(updateError){setError(updateError.message);return;}setItems(v=>v.map(n=>n.id===id?{...n,read_at:new Date().toISOString()}:n));}
+ async function markAll(){const supabase=createClient();if(!supabase)return;const {data:{user}}=await supabase.auth.getUser();if(!user)return;const now=new Date().toISOString();const {error:updateError}=await supabase.from("wc_notifications").update({read_at:now}).eq("recipient_id",user.id).is("read_at",null);if(updateError){setError(updateError.message);return;}setItems(v=>v.map(n=>({...n,read_at:n.read_at||now})));}
+ const Icon=({kind}:{kind:string})=>kind==="like"?<Heart size={17}/>:kind==="comment"?<MessageCircle size={17}/>:kind==="follow"?<UserPlus size={17}/>:<Bell size={17}/>;
+ return <main className="feature-page"><Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link><header className="feature-heading"><span><Bell size={22}/></span><div><h1>Notifications</h1><p>Updates about activity around your WorldConnect profile.</p></div></header><div className="feature-toolbar"><strong>Recent activity</strong><button className="feature-secondary" onClick={markAll}><CheckCheck size={15}/> Mark all read</button></div>{loading&&<p className="feature-notice"><LoaderCircle className="auth-spin"/> Loading notifications…</p>}{error&&<p className="feature-notice">{error}</p>}{!loading&&!error&&!items.length&&<p className="feature-notice">You're all caught up. New likes, comments, follows and messages will appear here.</p>}<section className="notification-list">{items.map(n=><article key={n.id} className={n.read_at?"notification-row":"notification-row unread"}><span className="notification-icon"><Icon kind={n.kind}/></span><div><p><b>{n.wc_profiles?.display_name||n.wc_profiles?.username||"A member"}</b> {n.message}</p><time>{new Date(n.created_at).toLocaleString()}</time></div>{!n.read_at&&<button onClick={()=>markRead(n.id)}>Mark read</button>}</article>)}</section></main>;
+}
