@@ -202,14 +202,20 @@ export default function HomePage() {
 
   async function sharePost(post: Post) {
     const shareUrl = `${window.location.origin}/?post=${post.id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: `WorldConnect · ${post.name}`, text: post.body, url: shareUrl });
-      else {
-        await navigator.clipboard.writeText(`${post.body}\n${shareUrl}`);
-        setNotice("Post text and link copied. You can paste it into any app.");
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `WorldConnect · ${post.name}`, text: post.body, url: shareUrl });
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
       }
-    } catch (error) {
-      if (error instanceof Error && error.name !== "AbortError") setNotice("Sharing is unavailable here. Copy the page link from your address bar.");
+    }
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard is unavailable");
+      await navigator.clipboard.writeText(`${post.body}\n${shareUrl}`);
+      setNotice("Post text and link copied. You can paste it into any app.");
+    } catch {
+      setNotice("Copy this post link to share: " + shareUrl);
     }
   }
 
