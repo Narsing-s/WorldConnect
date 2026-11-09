@@ -10,6 +10,7 @@ import {
   MessageSquareText, ArrowUpRight, X, Menu, Check, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
+type Comment = { id: string; body: string; author_id: string; created_at: string; author?: { display_name: string; username: string } | null };
 type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
 const initialPosts: Post[] = [
@@ -34,7 +35,7 @@ export default function HomePage() {
   const [profileName, setProfileName] = useState("Sign in");
   const [commentPost, setCommentPost] = useState<Post | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, string[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
@@ -75,14 +76,16 @@ export default function HomePage() {
   }, [mediaPreview]);
 
   useEffect(() => {
-    if (!user) return;
     const supabase = createClient();
     if (!supabase) return;
     let active = true;
     setFeedLoading(true);
+    const savedQuery = user
+      ? supabase.from("wc_saved_posts").select("post_id").eq("user_id", user.id)
+      : Promise.resolve({ data: [] as { post_id: string }[], error: null });
     Promise.all([
       supabase.from("wc_posts").select("id,author_id,body,image_url,video_url,created_at,wc_profiles(username,display_name,avatar_url,country),wc_post_likes(user_id),wc_comments(id)").order("created_at", { ascending: false }).limit(100),
-      supabase.from("wc_saved_posts").select("post_id").eq("user_id", user.id)
+      savedQuery
     ]).then(([feed, saved]) => {
       if (!active) return;
       if (feed.error) { setNotice("Could not load posts: " + feed.error.message); return; }
@@ -141,12 +144,12 @@ export default function HomePage() {
   async function openComments(post: Post) {
     setCommentPost(post);
     setCommentDraft("");
-    if (!user || post.id.startsWith("demo-")) return;
+    if (post.id.startsWith("demo-")) return;
     const supabase = createClient();
     if (!supabase) return;
-    const { data, error } = await supabase.from("wc_comments").select("body").eq("post_id", post.id).order("created_at", { ascending: true });
+    const { data, error } = await supabase.from("wc_comments").select("id,body,author_id,created_at,author:wc_profiles!wc_comments_author_id_fkey(display_name,username)").eq("post_id", post.id).order("created_at", { ascending: true });
     if (error) { setNotice("Could not load comments: " + error.message); return; }
-    setCommentsByPost(current => ({ ...current, [post.id]: (data || []).map(item => item.body) }));
+    setCommentsByPost(current => ({ ...current, [post.id]: (data || []) as unknown as Comment[] }));
   }
 
 
@@ -161,7 +164,7 @@ export default function HomePage() {
     }
     const { error } = await supabase.from("wc_comments").insert({ post_id: commentPost.id, author_id: user.id, body: value });
     if (error) { setNotice("Comment could not be posted: " + error.message); return; }
-    setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), value] }));
+    setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), { id: crypto.randomUUID(), body: value, author_id: user.id, created_at: new Date().toISOString(), author: { display_name: String(user.user_metadata?.display_name || user.user_metadata?.username || "You"), username: String(user.user_metadata?.username || "you") } }] }));
     setCommentDraft("");
   }
 
@@ -351,7 +354,7 @@ export default function HomePage() {
           <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
         </aside>
       </div>
-      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map((comment,index)=><div className="comment-item" key={`${commentPost.id}-${index}`}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{user?.user_metadata?.display_name || "You"}</b><br/>{comment}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Comments are saved to your account</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}
+      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map(comment=><div className="comment-item" key={comment.id}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{comment.author?.display_name || comment.author?.username || (comment.author_id===user?.id ? "You" : "WorldConnect member")}</b><br/>{comment.body}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Comments are saved to your account</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}
       <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>setTab("Explore")}><Compass size={19}/><span>Explore</span></button><button onClick={()=>setShowComposer(true)}><Plus size={21}/><span>Create</span></button><button onClick={()=>{window.location.href="/messages";}}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href=user?"/profile":"/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
     </main>
   );
