@@ -280,6 +280,7 @@ export default function HomePage() {
     };
     setPosts(current => [newPost, ...current]);
   }
+  function selectFeedTab(next: string) { if ((next === "Following" || next === "Saved") && !user) { window.location.href = "/login"; return; } setTab(next); }
   const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Saved",icon:Bookmark}];
 
   return (
@@ -292,7 +293,7 @@ export default function HomePage() {
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
           <div className="sidebar-label">MENU</div>
-          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="For you"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("For you");return;}if(label==="Explore"){setTab("Explore");return;}if(label==="Saved"){setTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
+          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="For you"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("For you");return;}if(label==="Explore"){setTab("Explore");return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
           <div className="sidebar-divider"/>
           <div className="sidebar-label">YOUR SPACES</div>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Learning%20Circle";}}><span className="space-dot purple">✦</span>Learning Circle</button>
@@ -304,7 +305,7 @@ export default function HomePage() {
 
         <section className="feed-column">
           <div className="welcome-row"><div><div className="eyebrow"><span className="live-dot"/> THE WORLD, IN ONE PLACE</div><h1>Your world. <em>Your people.</em></h1><p>Ideas travel further when we connect.</p></div><div className="world-orb"><Globe2 size={37}/><span>195+ countries</span></div></div>
-          <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>setTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>setTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Personalized</span></div>
+          <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>selectFeedTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>selectFeedTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Personalized</span></div>
           <div className="composer">
             <img className="avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces" alt="Your avatar"/>
             <button className="composer-prompt" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}>Share an idea with the world...</button>
@@ -330,7 +331,7 @@ export default function HomePage() {
             <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()&&!mediaFile} onClick={publish}>Share with the world <Send size={15}/></button></div>
           </div></div>}
           <div className="post-list">{visiblePosts.map(post=><article className="post-card" key={post.id}>
-            <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>{if(!user){window.location.href="/login";return;} if(post.name==="You" || post.handle===user.user_metadata?.username){if(window.confirm("Delete this post?")){const supabase=createClient();if(supabase&&!post.id.startsWith("demo-"))supabase.from("wc_posts").delete().eq("id",post.id).then(({error})=>{if(error)setNotice(error.message);else setPosts(current=>current.filter(p=>p.id!==post.id));});}}else if(!post.id.startsWith("demo-")){const reason=window.prompt("Why are you reporting this post?");if(reason?.trim()){const supabase=createClient();if(supabase)supabase.from("wc_reports").insert({reporter_id:user.id,post_id:post.id,reason:reason.trim()}).then(({error})=>setNotice(error?"Report could not be submitted: "+error.message:"Thank you. Your report was submitted for review."));}}else setNotice("Sample posts cannot be reported.");}}><MoreHorizontal size={20}/></button></div>
+            <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>{if(!user){window.location.href="/login";return;} if(post.authorId===user.id || post.name==="You" || post.handle===user.user_metadata?.username){if(window.confirm("Delete this post?")){const supabase=createClient();if(supabase&&!post.id.startsWith("demo-"))supabase.from("wc_posts").delete().eq("id",post.id).then(({error})=>{if(error)setNotice(error.message);else setPosts(current=>current.filter(p=>p.id!==post.id));});}}else if(!post.id.startsWith("demo-")){const reason=window.prompt("Why are you reporting this post?");if(reason?.trim()){const supabase=createClient();if(supabase)supabase.from("wc_reports").insert({reporter_id:user.id,post_id:post.id,reason:reason.trim()}).then(({error})=>setNotice(error?"Report could not be submitted: "+error.message:"Thank you. Your report was submitted for review."));}}else setNotice("Sample posts cannot be reported.");}}><MoreHorizontal size={20}/></button></div>
             <p className="post-body">{post.body}</p>
             {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
             {post.video&&<video className="post-video" src={post.video} controls playsInline preload="metadata" aria-label="Community shared video"/>}
