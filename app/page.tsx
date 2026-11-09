@@ -138,6 +138,17 @@ export default function HomePage() {
     }
   }
 
+  async function openComments(post: Post) {
+    setCommentPost(post);
+    setCommentDraft("");
+    if (!user || post.id.startsWith("demo-")) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    const { data, error } = await supabase.from("wc_comments").select("body").eq("post_id", post.id).order("created_at", { ascending: true });
+    if (error) { setNotice("Could not load comments: " + error.message); return; }
+    setCommentsByPost(current => ({ ...current, [post.id]: (data || []).map(item => item.body) }));
+  }
+
   async function submitComment() {
     if (!commentPost || !commentDraft.trim()) return;
     if (!user) { window.location.href = "/login"; return; }
@@ -150,7 +161,6 @@ export default function HomePage() {
     const { error } = await supabase.from("wc_comments").insert({ post_id: commentPost.id, author_id: user.id, body: value });
     if (error) { setNotice("Comment could not be posted: " + error.message); return; }
     setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), value] }));
-    setPosts(current => current.map(p => p.id === commentPost.id ? { ...p, comments: p.comments + 1 } : p));
     setCommentDraft("");
   }
 
@@ -312,7 +322,7 @@ export default function HomePage() {
             {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
             {post.video&&<video className="post-video" src={post.video} controls playsInline preload="metadata" aria-label="Community shared video"/>}
             <div className="post-tag"><Hash size={13}/>{post.tag}</div>
-            <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><button className="comment-count" onClick={()=>{setCommentPost(post);setCommentDraft("");}}>{post.comments + (commentsByPost[post.id]?.length || 0)} comments</button></div>
+            <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><button className="comment-count" onClick={()=>openComments(post)}>{commentsByPost[post.id]?.length ?? post.comments} comments</button></div>
             <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>{setCommentPost(post);setCommentDraft("");}}><MessageCircle size={18}/> Comment</button><button onClick={()=>sharePost(post)}><Send size={17}/> Share</button><button className={`save-action ${savedIds.includes(post.id) ? "liked" : ""}`} onClick={()=>toggleSaved(post)}><Bookmark size={17}/></button></div>
           </article>)}</div>
           {visiblePosts.length===0&&<div className="empty-state"><Search size={24}/><strong>No matching posts</strong><span>Try another keyword to explore the community.</span></div>}
