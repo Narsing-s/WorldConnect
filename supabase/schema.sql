@@ -219,10 +219,10 @@ drop policy if exists "Users add themselves to conversations" on public.wc_conve
 create policy "Users add themselves to conversations" on public.wc_conversation_members for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "Members read messages" on public.wc_messages;
 create policy "Members read messages" on public.wc_messages for select to authenticated
-  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = wc_messages.conversation_id and m.user_id = auth.uid()));
 drop policy if exists "Members send messages" on public.wc_messages;
 create policy "Members send messages" on public.wc_messages for insert to authenticated
-  with check (sender_id = auth.uid() and exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+  with check (sender_id = auth.uid() and exists (select 1 from public.wc_conversation_members m where m.conversation_id = wc_messages.conversation_id and m.user_id = auth.uid()));
 
 -- Public media bucket. Uploads are scoped to the authenticated user's folder.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -242,3 +242,20 @@ create policy "Users update their own WorldConnect media" on storage.objects for
 drop policy if exists "Users delete their own WorldConnect media" on storage.objects;
 create policy "Users delete their own WorldConnect media" on storage.objects for delete to authenticated
   using (bucket_id = 'worldconnect-media' and (storage.foldername(name))[1] = auth.uid()::text);
+
+
+create table if not exists public.wc_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.wc_profiles(id) on delete cascade,
+  post_id uuid not null references public.wc_posts(id) on delete cascade,
+  reason text not null check (char_length(reason) between 3 and 500),
+  created_at timestamptz not null default now(),
+  unique (reporter_id, post_id)
+);
+alter table public.wc_reports enable row level security;
+drop policy if exists "Users create reports" on public.wc_reports;
+create policy "Users create reports" on public.wc_reports for insert to authenticated
+  with check (reporter_id = auth.uid());
+drop policy if exists "Users view own reports" on public.wc_reports;
+create policy "Users view own reports" on public.wc_reports for select to authenticated
+  using (reporter_id = auth.uid());
