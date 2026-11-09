@@ -213,12 +213,12 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select exists (
     select 1 from public.wc_conversation_members m
     where m.conversation_id = target_conversation and m.user_id = auth.uid()
   );
-$;
+$$;
 
 drop policy if exists "Members view their conversations" on public.wc_conversations;
 create policy "Members view their conversations" on public.wc_conversations for select to authenticated
