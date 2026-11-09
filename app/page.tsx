@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import { createClient } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 import {
   Bell, Bookmark, Compass, Globe2, Hash, Heart, Home, ImagePlus, MessageCircle,
   MoreHorizontal, Plus, Search, Send, ShieldCheck, Sparkles, Users, Video,
-  MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness
+  MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
 type Post = { id: number; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
@@ -31,6 +33,11 @@ export default function HomePage() {
   const [notice, setNotice] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [search, setSearch] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState("Sign in");
+  const [commentPost, setCommentPost] = useState<Post | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, string[]>>({});
   const [showComposer, setShowComposer] = useState(false);
   const [composerMode, setComposerMode] = useState<"discussion" | "photo" | "video">("discussion");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -115,7 +122,7 @@ export default function HomePage() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Globe2 size={23}/></span><span>world<span className="brand-accent">connect</span></span></a>
         <div className="top-search"><Search size={17}/><input aria-label="Search WorldConnect" placeholder="Search people, topics and communities" value={search} onChange={e=>setSearch(e.target.value)}/><kbd>⌘ K</kbd></div>
-        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button" aria-label="Language"><Languages size={19}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>setNotice("You're all caught up!") }><Bell size={19}/><i/></button><a className="profile-chip" href="/login"><img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces" alt="Your profile"/><span>Sign in / Profile</span></a></div>
+        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button" aria-label="Language"><Languages size={19}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>setNotice("You're all caught up!") }><Bell size={19}/><i/></button><div className="profile-menu"><a className="profile-chip" href="/login" aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
       </header>
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
@@ -162,8 +169,8 @@ export default function HomePage() {
             {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
             {post.video&&<video className="post-video" src={post.video} controls playsInline preload="metadata" aria-label="Community shared video"/>}
             <div className="post-tag"><Hash size={13}/>{post.tag}</div>
-            <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><span>{post.comments} comments</span></div>
-            <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>setNotice("Comments will be available when accounts are enabled.")}><MessageCircle size={18}/> Comment</button><button onClick={()=>setNotice("Share link will be available when the post is published.")}><Send size={17}/> Share</button><button className="save-action" onClick={()=>setNotice("Saved items will sync after sign-in.")}><Bookmark size={17}/></button></div>
+            <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><button className="comment-count" onClick={()=>{setCommentPost(post);setCommentDraft("");}}>{post.comments + (commentsByPost[post.id]?.length || 0)} comments</button></div>
+            <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>{setCommentPost(post);setCommentDraft("");}}><MessageCircle size={18}/> Comment</button><button onClick={()=>sharePost(post)}><Send size={17}/> Share</button><button className="save-action" onClick={()=>setNotice("Saved items will sync after sign-in.")}><Bookmark size={17}/></button></div>
           </article>)}</div>
           {visiblePosts.length===0&&<div className="empty-state"><Search size={24}/><strong>No matching posts</strong><span>Try another keyword to explore the community.</span></div>}
           <div className="end-feed"><span/><Globe2 size={17}/><span/> You're at the edge of this preview <span/></div>
@@ -177,7 +184,7 @@ export default function HomePage() {
           <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
         </aside>
       </div>
-      <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>setTab("Explore")}><Compass size={19}/><span>Explore</span></button><button onClick={()=>setShowComposer(true)}><Plus size={21}/><span>Create</span></button><button onClick={()=>setNotice("Messages are coming soon.")}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>setNotice("Your profile setup will be available soon.")}><Users size={19}/><span>Profile</span></button></footer>
+      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map((comment,index)=><div className="comment-item" key={`${commentPost.id}-${index}`}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{user?.user_metadata?.display_name || "You"}</b><br/>{comment}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Preview comments stay in this session</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}\n      <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>setTab("Explore")}><Compass size={19}/><span>Explore</span></button><button onClick={()=>setShowComposer(true)}><Plus size={21}/><span>Create</span></button><button onClick={()=>setNotice("Messages are coming soon.")}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href="/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
     </main>
   );
 }
