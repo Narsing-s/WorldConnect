@@ -56,17 +56,17 @@ export default function HomePage() {
       setUser(session?.user ?? null);
       setProfileName(String(session?.user?.user_metadata?.display_name || session?.user?.user_metadata?.username || session?.user?.email?.split("@")[0] || "Sign in"));
     });
-    if (supabase.auth.getUser) {
-      supabase.auth.getUser().then(async ({data}) => {
-        if (!data.user) return;
-        const [{data:profiles},{data:follows}] = await Promise.all([
-          supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",data.user.id).limit(5),
-          supabase.from("wc_follows").select("following_id").eq("follower_id",data.user.id)
-        ]);
-        setPeople((profiles||[]).map((p:any)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
-        setFollowing((follows||[]).map((f:any)=>f.following_id));
-      });
-    }
+    supabase.auth.getUser().then(async ({data}) => {
+      const currentUser = data.user;
+      const [{data:profiles},{data:follows}] = await Promise.all([
+        supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",currentUser?.id || "00000000-0000-0000-0000-000000000000").limit(5),
+        currentUser
+          ? supabase.from("wc_follows").select("following_id").eq("follower_id",currentUser.id)
+          : Promise.resolve({data: [] as {following_id:string}[]})
+      ]);
+      setPeople((profiles||[]).map((p:any)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
+      setFollowing((follows||[]).map((f:any)=>f.following_id));
+    });
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -106,7 +106,7 @@ export default function HomePage() {
           likes: row.wc_post_likes?.length || 0,
           comments: row.wc_comments?.length || 0,
           tag: "Community",
-          liked: (row.wc_post_likes || []).some((like: {user_id:string}) => like.user_id === user.id)
+          liked: Boolean(user && (row.wc_post_likes || []).some((like: {user_id:string}) => like.user_id === user.id))
         };
       });
       setPosts(mapped);
