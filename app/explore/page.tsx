@@ -29,14 +29,15 @@ export default function ExplorePage() {
       setLoading(false);
       return;
     }
+    const client = supabase;
     let active = true;
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       const [memberResult, communityResult, postResult, followResult] = await Promise.all([
-        supabase.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
-        supabase.from("wc_communities").select("id,name,description,created_at").order("created_at", { ascending: false }).limit(100),
-        supabase.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
-        user ? supabase.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
+        client.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
+        client.from("wc_communities").select("id,name,description,created_at").order("created_at", { ascending: false }).limit(100),
+        client.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
+        user ? client.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
       ]);
       if (!active) return;
       setUserId(user?.id || "");
