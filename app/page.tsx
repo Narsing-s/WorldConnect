@@ -58,12 +58,16 @@ export default function HomePage() {
     });
     supabase.auth.getUser().then(async ({data}) => {
       const currentUser = data.user;
-      const [{data:profiles},{data:follows}] = await Promise.all([
+      const [{data:ownProfile},{data:profiles},{data:follows}] = await Promise.all([
+        currentUser
+          ? supabase.from("wc_profiles").select("display_name,username").eq("id",currentUser.id).maybeSingle()
+          : Promise.resolve({data:null}),
         supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",currentUser?.id || "00000000-0000-0000-0000-000000000000").limit(5),
         currentUser
           ? supabase.from("wc_follows").select("following_id").eq("follower_id",currentUser.id)
           : Promise.resolve({data: [] as {following_id:string}[]})
       ]);
+      if (ownProfile) setProfileName(ownProfile.display_name || ownProfile.username || currentUser?.email?.split("@")[0] || "Profile");
       setPeople((profiles||[]).map((p:any)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
       setFollowing((follows||[]).map((f:any)=>f.following_id));
     });
