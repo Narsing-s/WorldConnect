@@ -293,3 +293,29 @@ drop policy if exists "Authors manage opportunities" on public.wc_opportunities;
 create policy "Authors manage opportunities" on public.wc_opportunities for update to authenticated using (created_by = auth.uid()) with check (created_by = auth.uid());
 drop policy if exists "Authors delete opportunities" on public.wc_opportunities;
 create policy "Authors delete opportunities" on public.wc_opportunities for delete to authenticated using (created_by = auth.uid());
+
+
+create or replace function public.wc_start_conversation(target_user uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  new_conversation uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  if target_user is null or target_user = auth.uid() then
+    raise exception 'Choose another member';
+  end if;
+  if not exists (select 1 from public.wc_profiles p where p.id = target_user) then
+    raise exception 'Member not found';
+  end if;
+  insert into public.wc_conversations default values returning id into new_conversation;
+  insert into public.wc_conversation_members (conversation_id, user_id)
+  values (new_conversation, auth.uid()), (new_conversation, target_user);
+  return new_conversation;
+end;
+$$;
