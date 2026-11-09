@@ -27,7 +27,7 @@ const trends = [{tag:"ClimateAction"},{tag:"BuildInPublic"},{tag:"LearnTogether"
 type Person = {id:string;name:string;role:string;avatar:string};
 
 export default function HomePage() {
-  const [tab, setTab] = useState("For you");
+  const [tab, setTab] = useState("Popular");
   const [posts, setPosts] = useState(initialPosts);
   const [draft, setDraft] = useState("");
   const [following, setFollowing] = useState<string[]>([]);
@@ -131,13 +131,16 @@ export default function HomePage() {
     document.getElementById(`post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [posts]);
 
-  const visiblePosts = useMemo(() => posts.filter(p => {
+  const visiblePosts = useMemo(() => {
+    const filtered = posts.filter(p => {
     const matchesSearch = !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase());
     const matchesTab = tab === "Following" ? following.includes(p.authorId || "")
       : tab === "Saved" ? savedIds.includes(p.id)
       : true;
     return matchesSearch && matchesTab;
-  }), [posts, search, tab, following, savedIds]);
+    });
+    return tab === "Popular" ? [...filtered].sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments)) : filtered;
+  }, [posts, search, tab, following, savedIds]);
 
   async function toggleLike(id: string) {
     if (!user) { window.location.href = "/login"; return; }
@@ -311,7 +314,7 @@ export default function HomePage() {
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
           <div className="sidebar-label">MENU</div>
-          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="For you"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("For you");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
+          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="Popular"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("Popular");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
           <div className="sidebar-divider"/>
           <div className="sidebar-label">YOUR SPACES</div>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Learning%20Circle";}}><span className="space-dot purple">✦</span>Learning Circle</button>
@@ -323,7 +326,7 @@ export default function HomePage() {
 
         <section className="feed-column">
           <div className="welcome-row"><div><div className="eyebrow"><span className="live-dot"/> THE WORLD, IN ONE PLACE</div><h1>Your world. <em>Your people.</em></h1><p>Ideas travel further when we connect.</p></div><div className="world-orb"><Globe2 size={37}/><span>195+ countries</span></div></div>
-          <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>selectFeedTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>selectFeedTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Community feed</span></div>
+          <div className="feed-tabs"><button className={tab==="Popular"?"selected":""} onClick={()=>setTab("Popular")}>Popular</button><button className={tab==="Following"?"selected":""} onClick={()=>selectFeedTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>selectFeedTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Community feed</span></div>
           <div className="composer">
             <img className="avatar" src={profileAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"} alt="Your avatar"/>
             <button className="composer-prompt" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}>Share an idea with the world...</button>
@@ -370,7 +373,7 @@ export default function HomePage() {
         </aside>
       </div>
       {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map(comment=><div className="comment-item" key={comment.id}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{comment.author?.display_name || comment.author?.username || (comment.author_id===user?.id ? "You" : "WorldConnect member")}</b><br/>{comment.body}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Comments are saved to your account</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}
-      <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>{window.location.href="/explore";}}><Compass size={19}/><span>Explore</span></button><button onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><Plus size={21}/><span>Create</span></button><button onClick={()=>{window.location.href="/messages";}}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href=user?"/profile":"/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
+      <footer className="mobile-bottom"><button onClick={()=>setTab("Popular")}><Home size={19}/><span>Home</span></button><button onClick={()=>{window.location.href="/explore";}}><Compass size={19}/><span>Explore</span></button><button onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><Plus size={21}/><span>Create</span></button><button onClick={()=>{window.location.href="/messages";}}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href=user?"/profile":"/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
     </main>
   );
 }
