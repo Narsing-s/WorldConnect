@@ -207,22 +207,35 @@ drop policy if exists "Users update their notifications" on public.wc_notificati
 create policy "Users update their notifications" on public.wc_notifications for update to authenticated
   using (auth.uid() = recipient_id) with check (auth.uid() = recipient_id);
 
+create or replace function public.wc_is_conversation_member(target_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1 from public.wc_conversation_members m
+    where m.conversation_id = target_conversation and m.user_id = auth.uid()
+  );
+$;
+
 drop policy if exists "Members view their conversations" on public.wc_conversations;
 create policy "Members view their conversations" on public.wc_conversations for select to authenticated
-  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = id and m.user_id = auth.uid()));
+  using (public.wc_is_conversation_member(id));
 drop policy if exists "Members view conversation membership" on public.wc_conversation_members;
 create policy "Members view conversation membership" on public.wc_conversation_members for select to authenticated
-  using (user_id = auth.uid());
+  using (public.wc_is_conversation_member(conversation_id));
 drop policy if exists "Users create conversations" on public.wc_conversations;
 create policy "Users create conversations" on public.wc_conversations for insert to authenticated with check (true);
 drop policy if exists "Users add themselves to conversations" on public.wc_conversation_members;
 create policy "Users add themselves to conversations" on public.wc_conversation_members for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "Members read messages" on public.wc_messages;
 create policy "Members read messages" on public.wc_messages for select to authenticated
-  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = wc_messages.conversation_id and m.user_id = auth.uid()));
+  using (public.wc_is_conversation_member(wc_messages.conversation_id));
 drop policy if exists "Members send messages" on public.wc_messages;
 create policy "Members send messages" on public.wc_messages for insert to authenticated
-  with check (sender_id = auth.uid() and exists (select 1 from public.wc_conversation_members m where m.conversation_id = wc_messages.conversation_id and m.user_id = auth.uid()));
+  with check (sender_id = auth.uid() and public.wc_is_conversation_member(wc_messages.conversation_id));
 
 -- Public media bucket. Uploads are scoped to the authenticated user's folder.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -259,3 +272,24 @@ create policy "Users create reports" on public.wc_reports for insert to authenti
 drop policy if exists "Users view own reports" on public.wc_reports;
 create policy "Users view own reports" on public.wc_reports for select to authenticated
   using (reporter_id = auth.uid());
+
+
+create table if not exists public.wc_opportunities (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 3 and 120),
+  description text not null check (char_length(description) between 10 and 3000),
+  opportunity_type text not null default 'Other',
+  location text not null default 'Remote',
+  application_url text,
+  created_by uuid not null references public.wc_profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.wc_opportunities enable row level security;
+drop policy if exists "Opportunities are public" on public.wc_opportunities;
+create policy "Opportunities are public" on public.wc_opportunities for select using (true);
+drop policy if exists "Members publish opportunities" on public.wc_opportunities;
+create policy "Members publish opportunities" on public.wc_opportunities for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists "Authors manage opportunities" on public.wc_opportunities;
+create policy "Authors manage opportunities" on public.wc_opportunities for update to authenticated using (created_by = auth.uid()) with check (created_by = auth.uid());
+drop policy if exists "Authors delete opportunities" on public.wc_opportunities;
+create policy "Authors delete opportunities" on public.wc_opportunities for delete to authenticated using (created_by = auth.uid());
