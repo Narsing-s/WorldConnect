@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Globe2, LoaderCircle, Save, LogOut } from "lucide-react";
+import { ArrowLeft, Globe2, LoaderCircle, Save, LogOut, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 type Profile = { username: string; display_name: string; bio: string; avatar_url: string | null; country: string | null };
@@ -15,6 +15,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -28,6 +30,29 @@ export default function ProfilePage() {
       setLoading(false);
     });
   }, [router]);
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("Choose an image file for your profile photo."); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Profile photos must be 10 MB or smaller."); return; }
+    const supabase = createClient();
+    if (!supabase) { setError("Supabase is not connected."); return; }
+    setUploadingAvatar(true); setError(""); setMessage("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.replace("/login"); return; }
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${user.id}/avatars/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("worldconnect-media").upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) setError(`Profile photo upload failed: ${uploadError.message}`);
+    else {
+      const url = supabase.storage.from("worldconnect-media").getPublicUrl(path).data.publicUrl;
+      setProfile(current => ({ ...current, avatar_url: url }));
+      setMessage("Profile photo uploaded. Save your profile to apply it.");
+    }
+    setUploadingAvatar(false);
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +90,8 @@ export default function ProfilePage() {
         <label>Display name<input value={profile.display_name} maxLength={60} required onChange={e=>setProfile(p=>({...p,display_name:e.target.value}))}/></label>
         <label>Country or city<input value={profile.country || ""} maxLength={80} placeholder="e.g. Hyderabad, India" onChange={e=>setProfile(p=>({...p,country:e.target.value}))}/></label>
         <label>About you<textarea value={profile.bio} maxLength={300} rows={4} placeholder="Tell the community a little about yourself…" onChange={e=>setProfile(p=>({...p,bio:e.target.value}))}/></label>
-        <label>Profile photo URL<input type="url" value={profile.avatar_url || ""} placeholder="https://…" onChange={e=>setProfile(p=>({...p,avatar_url:e.target.value}))}/></label>
+        <div className="profile-avatar-control"><span className="profile-avatar-preview">{profile.avatar_url ? <img src={profile.avatar_url} alt="Profile photo preview"/> : <Globe2 size={28}/>}</span><div><strong>Profile photo</strong><p>Choose a photo from your device (up to 10 MB).</p><input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={uploadAvatar}/><button type="button" className="profile-avatar-button" disabled={uploadingAvatar} onClick={()=>avatarInputRef.current?.click()}><Camera size={15}/>{uploadingAvatar ? "Uploading…" : "Choose photo"}</button></div></div>
+        <label>Or use a profile photo URL<input type="url" value={profile.avatar_url || ""} placeholder="https://…" onChange={e=>setProfile(p=>({...p,avatar_url:e.target.value}))}/></label>
         {error&&<div className="auth-alert error" role="alert">{error}</div>}
         {message&&<div className="auth-alert success" role="status">{message}</div>}
         <button className="auth-submit" disabled={saving}>{saving?<LoaderCircle className="auth-spin"/>:<Save size={17}/>} Save profile</button>
