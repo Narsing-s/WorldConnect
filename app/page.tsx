@@ -125,6 +125,12 @@ export default function HomePage() {
     return () => { active = false; };
   }, [user]);
 
+  useEffect(() => {
+    const postId = new URLSearchParams(window.location.search).get("post");
+    if (!postId) return;
+    document.getElementById(`post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [posts]);
+
   const visiblePosts = useMemo(() => posts.filter(p => {
     const matchesSearch = !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase());
     const matchesTab = tab === "Following" ? following.includes(p.authorId || "")
@@ -342,7 +348,7 @@ export default function HomePage() {
             </div>}
             <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()&&!mediaFile} onClick={publish}>Share with the world <Send size={15}/></button></div>
           </div></div>}
-          <div className="post-list">{visiblePosts.map(post=><article className="post-card" key={post.id}>
+          <div className="post-list">{visiblePosts.map(post=><article className="post-card" id={`post-${post.id}`} key={post.id}>
             <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>{if(!user){window.location.href="/login";return;} if(post.authorId===user.id || post.name==="You" || post.handle===user.user_metadata?.username){if(window.confirm("Delete this post?")){const supabase=createClient();if(supabase&&!post.id.startsWith("demo-"))supabase.from("wc_posts").delete().eq("id",post.id).then(({error})=>{if(error)setNotice(error.message);else setPosts(current=>current.filter(p=>p.id!==post.id));});}}else if(!post.id.startsWith("demo-")){const reason=window.prompt("Why are you reporting this post?");if(reason?.trim()){const supabase=createClient();if(supabase)supabase.from("wc_reports").insert({reporter_id:user.id,post_id:post.id,reason:reason.trim()}).then(({error})=>setNotice(error?"Report could not be submitted: "+error.message:"Thank you. Your report was submitted for review."));}}else setNotice("Sample posts cannot be reported.");}}><MoreHorizontal size={20}/></button></div>
             <p className="post-body">{post.body}</p>
             {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
