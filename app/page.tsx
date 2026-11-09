@@ -46,6 +46,20 @@ export default function HomePage() {
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+      setProfileName(String(data.user?.user_metadata?.display_name || data.user?.user_metadata?.username || data.user?.email?.split("@")[0] || "Profile"));
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setProfileName(String(session?.user?.user_metadata?.display_name || session?.user?.user_metadata?.username || session?.user?.email?.split("@")[0] || "Sign in"));
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (!mediaPreview) return;
     return () => URL.revokeObjectURL(mediaPreview);
   }, [mediaPreview]);
@@ -54,6 +68,33 @@ export default function HomePage() {
 
   function toggleLike(id: number) {
     setPosts(current => current.map(p => p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p));
+  }
+
+  function submitComment() {
+    if (!commentPost || !commentDraft.trim()) return;
+    const value = commentDraft.trim();
+    setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), value] }));
+    setPosts(current => current.map(p => p.id === commentPost.id ? { ...p, comments: p.comments + 1 } : p));
+    setCommentDraft("");
+  }
+
+  async function sharePost(post: Post) {
+    const shareUrl = `${window.location.origin}/?post=${post.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: `WorldConnect · ${post.name}`, text: post.body, url: shareUrl });
+      else {
+        await navigator.clipboard.writeText(`${post.body}\n${shareUrl}`);
+        setNotice("Post text and link copied. You can paste it into any app.");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name !== "AbortError") setNotice("Sharing is unavailable here. Copy the page link from your address bar.");
+    }
+  }
+
+  async function signOut() {
+    const supabase = createClient();
+    if (supabase) await supabase.auth.signOut();
+    window.location.href = "/";
   }
 
   function openMediaPicker(kind: "photo" | "video") {
@@ -184,7 +225,8 @@ export default function HomePage() {
           <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
         </aside>
       </div>
-      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map((comment,index)=><div className="comment-item" key={`${commentPost.id}-${index}`}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{user?.user_metadata?.display_name || "You"}</b><br/>{comment}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Preview comments stay in this session</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}\n      <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>setTab("Explore")}><Compass size={19}/><span>Explore</span></button><button onClick={()=>setShowComposer(true)}><Plus size={21}/><span>Create</span></button><button onClick={()=>setNotice("Messages are coming soon.")}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href="/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
+      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map((comment,index)=><div className="comment-item" key={`${commentPost.id}-${index}`}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{user?.user_metadata?.display_name || "You"}</b><br/>{comment}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Preview comments stay in this session</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}\n      {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map((comment,index)=><div className="comment-item" key={`${commentPost.id}-${index}`}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{user?.user_metadata?.display_name || "You"}</b><br/>{comment}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Preview comments stay in this session</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}
+      <footer className="mobile-bottom"><button onClick={()=>setTab("For you")}><Home size={19}/><span>Home</span></button><button onClick={()=>setTab("Explore")}><Compass size={19}/><span>Explore</span></button><button onClick={()=>setShowComposer(true)}><Plus size={21}/><span>Create</span></button><button onClick={()=>setNotice("Messages are coming soon.")}><MessageCircle size={19}/><span>Chats</span></button><button onClick={()=>{window.location.href="/login";}}><UserRound size={19}/><span>Profile</span></button></footer>
     </main>
   );
 }
