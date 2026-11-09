@@ -7,7 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   Bell, Bookmark, Compass, Globe2, Hash, Heart, Home, ImagePlus, MessageCircle,
   MoreHorizontal, Plus, Search, Send, ShieldCheck, Sparkles, Users, Video,
-  MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness, UserRound, LogOut
+  MessageSquareText, ArrowUpRight, X, Menu, Check, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
 type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
@@ -316,6 +316,7 @@ export default function HomePage() {
           </div>
           <input ref={photoInputRef} className="file-picker-input" type="file" accept="image/*" aria-label="Choose a photo from your device" onChange={e=>handleMediaChange(e,"photo")}/>
           <input ref={videoInputRef} className="file-picker-input" type="file" accept="video/*" aria-label="Choose a video from your device" onChange={e=>handleMediaChange(e,"video")}/>
+          {feedLoading&&<div className="notice" role="status">Loading the latest community posts…</div>}
           {notice&&<div className="notice" role="status"><Check size={16}/>{notice}<button aria-label="Dismiss" onClick={()=>setNotice("")}><X size={15}/></button></div>}
           {showComposer&&<div className="modal-backdrop" onClick={closeComposer}><div className="composer-modal" onClick={e=>e.stopPropagation()}>
             <div className="modal-head"><strong>{composerMode==="photo"?"Share a photo":composerMode==="video"?"Share a video":"Start a discussion"}</strong><button className="icon-button" aria-label="Close composer" onClick={closeComposer}><X size={19}/></button></div>
