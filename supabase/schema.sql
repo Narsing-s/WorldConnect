@@ -112,7 +112,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   base_username text;
   final_username text;
@@ -139,7 +139,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists wc_on_auth_user_created on auth.users;
 create trigger wc_on_auth_user_created
