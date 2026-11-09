@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell, Bookmark, Compass, Globe2, Hash, Heart, Home, ImagePlus, MessageCircle,
   MoreHorizontal, Plus, Search, Send, ShieldCheck, Sparkles, Users, Video,
   MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness
 } from "lucide-react";
 
-type Post = { id: number; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
+type Post = { id: number; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
 const initialPosts: Post[] = [
   { id: 1, name: "Amara Okafor", handle: "amara.explores", country: "Lagos, Nigeria", time: "12 min ago", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces", body: "A reminder from Lagos today: the best ideas happen when we make room for different perspectives. What is one thing your city has taught you about community? 🌍", image: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=85", likes: 248, comments: 36, tag: "Community", verified: true },
@@ -31,17 +31,81 @@ export default function HomePage() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [search, setSearch] = useState("");
   const [showComposer, setShowComposer] = useState(false);
+  const [composerMode, setComposerMode] = useState<"discussion" | "photo" | "video">("discussion");
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!mediaPreview) return;
+    return () => URL.revokeObjectURL(mediaPreview);
+  }, [mediaPreview]);
 
   const visiblePosts = useMemo(() => posts.filter(p => !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase())), [posts, search]);
 
   function toggleLike(id: number) {
     setPosts(current => current.map(p => p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p));
   }
+
+  function openMediaPicker(kind: "photo" | "video") {
+    setComposerMode(kind);
+    setShowComposer(true);
+    if (kind === "photo") photoInputRef.current?.click();
+    else videoInputRef.current?.click();
+  }
+
+  function handleMediaChange(event: React.ChangeEvent<HTMLInputElement>, kind: "photo" | "video") {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (kind === "photo" && !file.type.startsWith("image/")) {
+      setNotice("Please choose an image file.");
+      return;
+    }
+    if (kind === "video" && !file.type.startsWith("video/")) {
+      setNotice("Please choose a video file.");
+      return;
+    }
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
+  }
+
+  function clearMedia() {
+    setMediaFile(null);
+    setMediaPreview("");
+  }
+
+  function closeComposer() {
+    setShowComposer(false);
+    setDraft("");
+    clearMedia();
+  }
+
   function publish() {
-    if (!draft.trim()) return;
-    setPosts(current => [{ id: Date.now(), name: "You", handle: "your.profile", country: "Your corner of the world", time: "Just now", avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces", body: draft.trim(), likes: 0, comments: 0, tag: "Community" }, ...current]);
-    setDraft(""); setShowComposer(false); setNotice("Your post was added to this preview feed.");
-    window.setTimeout(() => setNotice(""), 3500);
+    if (!draft.trim() && !mediaFile) return;
+    const body = draft.trim() || (composerMode === "photo" ? "Shared a photo." : composerMode === "video" ? "Shared a video." : "");
+    const newPost: Post = {
+      id: Date.now(),
+      name: "You",
+      handle: "your.profile",
+      country: "Your corner of the world",
+      time: "Just now",
+      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
+      body,
+      ...(mediaFile && composerMode === "photo" ? { image: mediaPreview } : {}),
+      ...(mediaFile && composerMode === "video" ? { video: mediaPreview } : {}),
+      likes: 0,
+      comments: 0,
+      tag: composerMode === "discussion" ? "Discussion" : "Community"
+    };
+    setPosts(current => [newPost, ...current]);
+    setDraft("");
+    setMediaFile(null);
+    setMediaPreview("");
+    setShowComposer(false);
+    setNotice("Your post was added to this preview feed. Media is available in this browser session.");
+    window.setTimeout(() => setNotice(""), 4500);
   }
   const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Saved",icon:Bookmark}];
 
@@ -70,16 +134,32 @@ export default function HomePage() {
           <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>setTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>setTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Personalized</span></div>
           <div className="composer">
             <img className="avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces" alt="Your avatar"/>
-            <button className="composer-prompt" onClick={()=>setShowComposer(true)}>Share an idea with the world...</button>
-            <button className="composer-add" aria-label="Create post" onClick={()=>setShowComposer(true)}><Plus size={20}/></button>
-            <div className="composer-tools"><button onClick={()=>setShowComposer(true)}><ImagePlus size={17}/> Photo</button><button onClick={()=>setShowComposer(true)}><Video size={17}/> Video</button><button onClick={()=>setShowComposer(true)}><MessageSquareText size={17}/> Discussion</button></div>
+            <button className="composer-prompt" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}>Share an idea with the world...</button>
+            <button className="composer-add" aria-label="Create post" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><Plus size={20}/></button>
+            <div className="composer-tools">
+              <button type="button" onClick={()=>openMediaPicker("photo")}><ImagePlus size={17}/> Photo</button>
+              <button type="button" onClick={()=>openMediaPicker("video")}><Video size={17}/> Video</button>
+              <button type="button" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><MessageSquareText size={17}/> Discussion</button>
+            </div>
           </div>
+          <input ref={photoInputRef} className="file-picker-input" type="file" accept="image/*" aria-label="Choose a photo from your device" onChange={e=>handleMediaChange(e,"photo")}/>
+          <input ref={videoInputRef} className="file-picker-input" type="file" accept="video/*" aria-label="Choose a video from your device" onChange={e=>handleMediaChange(e,"video")}/>
           {notice&&<div className="notice" role="status"><Check size={16}/>{notice}<button aria-label="Dismiss" onClick={()=>setNotice("")}><X size={15}/></button></div>}
-          {showComposer&&<div className="modal-backdrop" onClick={()=>setShowComposer(false)}><div className="composer-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Create a post</strong><button className="icon-button" onClick={()=>setShowComposer(false)}><X size={19}/></button></div><textarea autoFocus maxLength={2000} placeholder="What's happening in your world?" value={draft} onChange={e=>setDraft(e.target.value)}/><div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()} onClick={publish}>Share with the world <Send size={15}/></button></div></div></div>}
+          {showComposer&&<div className="modal-backdrop" onClick={closeComposer}><div className="composer-modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-head"><strong>{composerMode==="photo"?"Share a photo":composerMode==="video"?"Share a video":"Start a discussion"}</strong><button className="icon-button" aria-label="Close composer" onClick={closeComposer}><X size={19}/></button></div>
+            <textarea autoFocus maxLength={2000} placeholder={composerMode==="discussion"?"Write a paragraph or tell your story...":"Add a caption or tell the story behind your media..."} value={draft} onChange={e=>setDraft(e.target.value)}/>
+            {mediaPreview&&<div className="media-preview">
+              {composerMode==="photo"?<img src={mediaPreview} alt="Selected photo preview"/>:<video src={mediaPreview} controls playsInline aria-label="Selected video preview"/>}
+              <button type="button" className="remove-media" onClick={clearMedia}>Remove attachment</button>
+              <span>{mediaFile?.name}</span>
+            </div>}
+            <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()&&!mediaFile} onClick={publish}>Share with the world <Send size={15}/></button></div>
+          </div></div>}
           <div className="post-list">{visiblePosts.map(post=><article className="post-card" key={post.id}>
             <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>setNotice("Post options will be available after sign-in.")}><MoreHorizontal size={20}/></button></div>
             <p className="post-body">{post.body}</p>
-            {post.image&&<img className="post-image" src={post.image} alt="Community shared landscape"/>}
+            {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
+            {post.video&&<video className="post-video" src={post.video} controls playsInline preload="metadata" aria-label="Community shared video"/>}
             <div className="post-tag"><Hash size={13}/>{post.tag}</div>
             <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><span>{post.comments} comments</span></div>
             <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>setNotice("Comments will be available when accounts are enabled.")}><MessageCircle size={18}/> Comment</button><button onClick={()=>setNotice("Share link will be available when the post is published.")}><Send size={17}/> Share</button><button className="save-action" onClick={()=>setNotice("Saved items will sync after sign-in.")}><Bookmark size={17}/></button></div>
