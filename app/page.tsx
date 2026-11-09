@@ -10,6 +10,9 @@ import {
   MessageSquareText, ArrowUpRight, X, Menu, Check, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
+type MemberSummary = {id:string;username:string;display_name:string|null;avatar_url:string|null;country:string|null};
+type FollowSummary = {following_id:string};
+type FeedRow = {id:string;author_id:string;body:string;image_url:string|null;video_url:string|null;created_at:string;wc_profiles:{username:string;display_name:string|null;avatar_url:string|null;country:string|null}|Array<{username:string;display_name:string|null;avatar_url:string|null;country:string|null}>|null;wc_post_likes:{user_id:string}[];wc_comments:{id:string}[]};
 type Comment = { id: string; body: string; author_id: string; created_at: string; author?: { display_name: string; username: string } | null };
 type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
@@ -68,8 +71,8 @@ export default function HomePage() {
           : Promise.resolve({data: [] as {following_id:string}[]})
       ]);
       if (ownProfile) setProfileName(ownProfile.display_name || ownProfile.username || currentUser?.email?.split("@")[0] || "Profile");
-      setPeople((profiles||[]).map((p:any)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
-      setFollowing((follows||[]).map((f:any)=>f.following_id));
+      setPeople((profiles||[]).map((p:MemberSummary)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
+      setFollowing((follows||[]).map((f:FollowSummary)=>f.following_id));
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -93,7 +96,7 @@ export default function HomePage() {
     ]).then(([feed, saved]) => {
       if (!active) return;
       if (feed.error) { setNotice("Could not load posts: " + feed.error.message); return; }
-      const rows = (feed.data || []) as unknown as Array<Record<string, any>>;
+      const rows = (feed.data || []) as unknown as FeedRow[];
       const mapped: Post[] = rows.map(row => {
         const profile = Array.isArray(row.wc_profiles) ? row.wc_profiles[0] : row.wc_profiles;
         return {
@@ -126,7 +129,7 @@ export default function HomePage() {
       : tab === "Saved" ? savedIds.includes(p.id)
       : true;
     return matchesSearch && matchesTab;
-  }), [posts, search, tab, following, savedIds, user]);
+  }), [posts, search, tab, following, savedIds]);
 
   async function toggleLike(id: string) {
     if (!user) { window.location.href = "/login"; return; }
@@ -347,7 +350,7 @@ export default function HomePage() {
             <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>openComments(post)}><MessageCircle size={18}/> Comment</button><button onClick={()=>sharePost(post)}><Send size={17}/> Share</button><button className={`save-action ${savedIds.includes(post.id) ? "liked" : ""}`} onClick={()=>toggleSaved(post)}><Bookmark size={17}/></button></div>
           </article>)}</div>
           {visiblePosts.length===0&&<div className="empty-state"><Search size={24}/><strong>No matching posts</strong><span>Try another keyword to explore the community.</span></div>}
-          <div className="end-feed"><span/><Globe2 size={17}/><span/> You're at the edge of this preview <span/></div>
+          <div className="end-feed"><span/><Globe2 size={17}/><span/> You are all caught up <span/></div>
         </section>
 
         <aside className="right-sidebar">
@@ -355,7 +358,7 @@ export default function HomePage() {
           <div className="side-card"><div className="side-heading"><h3>Trending worldwide</h3><button onClick={()=>setTab("Explore")}>See all</button></div>{trends.map((t,i)=><button className="trend-row" key={t.tag} onClick={()=>{setSearch(t.tag.replace("#",""));setTab("Explore");}}><span className="trend-number">0{i+1}</span><span><strong>#{t.tag}</strong><small>Trending topic</small></span><ArrowUpRight size={15}/></button>)}</div>
           <div className="side-card people-card"><div className="side-heading"><h3>People to discover</h3><button onClick={()=>setTab("Explore")}>Explore</button></div>{people.map(p=><div className="person-row" key={p.name}><img src={p.avatar} alt=""/><span><strong>{p.name}</strong><small>{p.role}</small></span><button className={following.includes(p.id)?"following":""} onClick={async()=>{if(!user){window.location.href="/login";return;}const supabase=createClient();if(!supabase)return;const exists=following.includes(p.id);const result=exists?await supabase.from("wc_follows").delete().eq("follower_id",user.id).eq("following_id",p.id):await supabase.from("wc_follows").insert({follower_id:user.id,following_id:p.id});if(result.error){setNotice(result.error.message);return;}setFollowing(v=>exists?v.filter(id=>id!==p.id):[...v,p.id]);}}>{following.includes(p.id)?<Check size={15}/>:<Plus size={15}/>}</button></div>)}</div>
           <div className="join-note"><Sparkles size={17}/><p><strong>A bigger world starts with a hello.</strong><br/>Invite a friend to make this community more connected.</p><button onClick={invitePeople}>Invite people <ArrowUpRight size={14}/></button></div>
-          <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
+          <div className="preview-label"><span/> WORLDWIDE COMMUNITY</div>
         </aside>
       </div>
       {commentPost&&<div className="modal-backdrop" onClick={()=>setCommentPost(null)}><section className="composer-modal comment-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><strong>Comments</strong><button className="icon-button" aria-label="Close comments" onClick={()=>setCommentPost(null)}><X size={19}/></button></div><p className="comment-context">Replying to <b>{commentPost.name}</b>: {commentPost.body}</p><div className="comment-list">{(commentsByPost[commentPost.id]||[]).map(comment=><div className="comment-item" key={comment.id}><span className="comment-avatar"><UserRound size={15}/></span><p><b>{comment.author?.display_name || comment.author?.username || (comment.author_id===user?.id ? "You" : "WorldConnect member")}</b><br/>{comment.body}</p></div>)}{!(commentsByPost[commentPost.id]||[]).length&&<p className="comment-empty">Be the first to join this conversation.</p>}</div><textarea className="comment-input" rows={3} maxLength={1000} placeholder="Write a thoughtful comment..." value={commentDraft} onChange={e=>setCommentDraft(e.target.value)}/><div className="modal-foot"><span>{commentDraft.length}/1000 · Comments are saved to your account</span><button className="primary-button" disabled={!commentDraft.trim()} onClick={submitComment}>Post comment <Send size={15}/></button></div></section></div>}
