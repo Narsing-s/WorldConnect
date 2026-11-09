@@ -57,6 +57,14 @@ create table if not exists public.wc_community_members (
   primary key (community_id, user_id)
 );
 
+-- Seed the three community shortcuts displayed in the navigation.
+insert into public.wc_communities (name, description)
+values
+  ('Learning Circle', 'A welcoming space to learn, ask questions and share knowledge.'),
+  ('Creators Hub', 'A community for creators to collaborate, share work and exchange feedback.'),
+  ('Tech for Good', 'Connect with people using technology to make a positive impact.')
+on conflict (name) do nothing;
+
 alter table public.wc_profiles enable row level security;
 alter table public.wc_posts enable row level security;
 alter table public.wc_post_likes enable row level security;
