@@ -105,32 +105,41 @@ create policy "Users manage own memberships" on public.wc_community_members for 
 -- Do not add a service-role key to client-side environment variables.
 
 
--- Automatically provision a public profile when a user confirms/signs up.
+-- Automatically provision a public profile when a user signs up.
+-- Preserve the requested username when available; add a stable suffix only on collision.
 create or replace function public.wc_handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $
 declare
   base_username text;
+  final_username text;
+  clean_display_name text;
 begin
   base_username := lower(regexp_replace(coalesce(new.raw_user_meta_data ->> 'username', 'member'), '[^a-z0-9_]', '', 'g'));
   if char_length(base_username) < 3 then
     base_username := 'member';
   end if;
 
+  base_username := left(base_username, 30);
+  clean_display_name := coalesce(nullif(btrim(new.raw_user_meta_data ->> 'display_name'), ''), base_username);
+
   insert into public.wc_profiles (id, username, display_name)
-  values (
-    new.id,
-    left(base_username, 21) || '_' || substr(replace(new.id::text, '-', ''), 1, 8),
-    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), base_username)
-  )
+  values (new.id, base_username, clean_display_name)
   on conflict (id) do nothing;
+
+  if not exists (select 1 from public.wc_profiles where id = new.id) then
+    final_username := left(base_username, 21) || '_' || substr(replace(new.id::text, '-', ''), 1, 8);
+    insert into public.wc_profiles (id, username, display_name)
+    values (new.id, final_username, clean_display_name)
+    on conflict (id) do nothing;
+  end if;
 
   return new;
 end;
-$$;
+$;
 
 drop trigger if exists wc_on_auth_user_created on auth.users;
 create trigger wc_on_auth_user_created
