@@ -7,11 +7,13 @@ import { createClient } from "@/lib/supabase";
 
 type Member = { id: string; username: string; display_name: string | null; bio: string | null; country: string | null; avatar_url: string | null };
 type Community = { id: string; name: string; description: string; created_at: string };
+type FeedPost = { id: string; body: string; image_url: string | null; video_url: string | null; created_at: string; author: { username: string; display_name: string | null } | null };
 
 export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -30,9 +32,10 @@ export default function ExplorePage() {
     let active = true;
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      const [memberResult, communityResult, followResult] = await Promise.all([
+      const [memberResult, communityResult, postResult, followResult] = await Promise.all([
         supabase.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
         supabase.from("wc_communities").select("id,name,description,created_at").order("created_at", { ascending: false }).limit(100),
+        supabase.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
         user ? supabase.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
       ]);
       if (!active) return;
@@ -41,6 +44,8 @@ export default function ExplorePage() {
       else setMembers((memberResult.data || []).filter((member: Member) => member.id !== user?.id) as Member[]);
       if (communityResult.error) setNotice("Could not load communities: " + communityResult.error.message);
       else setCommunities((communityResult.data || []) as Community[]);
+      if (postResult.error) setNotice("Could not load posts: " + postResult.error.message);
+      else setPosts((postResult.data || []) as unknown as FeedPost[]);
       if (followResult.error) setNotice("Could not load your following list: " + followResult.error.message);
       else setFollowing((followResult.data || []).map((item: { following_id: string }) => item.following_id));
       setLoading(false);
@@ -59,6 +64,7 @@ export default function ExplorePage() {
     !normalizedQuery || [member.username, member.display_name, member.bio, member.country]
       .some(value => (value || "").toLowerCase().includes(normalizedQuery))
   ), [members, normalizedQuery]);
+  const visiblePosts = useMemo(() => posts.filter(post => !normalizedQuery || post.body.toLowerCase().includes(normalizedQuery)), [posts, normalizedQuery]);
   const visibleCommunities = useMemo(() => communities.filter(community =>
     !normalizedQuery || (community.name + " " + community.description).toLowerCase().includes(normalizedQuery)
   ), [communities, normalizedQuery]);
@@ -97,6 +103,19 @@ export default function ExplorePage() {
               </button>
             </article>
           ))}
+        </div>
+      </section>
+      <section className="explore-section">
+        <div className="feature-toolbar"><strong>Posts and discussions</strong><span>{visiblePosts.length} posts</span></div>
+        {!loading && visiblePosts.length === 0 && <p className="feature-notice">No matching posts found.</p>}
+        <div className="explore-post-list">
+          {visiblePosts.map(post => <article className="explore-post-card" key={post.id}>
+            <div><strong>{post.author?.display_name || post.author?.username || "WorldConnect member"}</strong><small>{new Date(post.created_at).toLocaleString()}</small></div>
+            <p>{post.body}</p>
+            {post.image_url && <img src={post.image_url} alt="Shared community post"/>}
+            {post.video_url && <span className="explore-video-label">Video post</span>}
+            <Link href={`/?post=${post.id}`}>Open discussion</Link>
+          </article>)}
         </div>
       </section>
       <section className="explore-section">
