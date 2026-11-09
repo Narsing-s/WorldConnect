@@ -319,3 +319,75 @@ begin
   return new_conversation;
 end;
 $$;
+
+
+-- Generate in-app notifications from social activity.
+create or replace function public.wc_create_activity_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  recipient uuid;
+  actor uuid;
+  related_post uuid;
+  notification_kind text;
+  notification_text text;
+begin
+  actor := new.user_id;
+  related_post := new.post_id;
+  notification_kind := 'like';
+  notification_text := 'appreciated your post';
+
+  if tg_table_name = 'wc_comments' then
+    actor := new.author_id;
+    related_post := new.post_id;
+    notification_kind := 'comment';
+    notification_text := 'commented on your post';
+  elsif tg_table_name = 'wc_follows' then
+    actor := new.follower_id;
+    recipient := new.following_id;
+    notification_kind := 'follow';
+    notification_text := 'started following you';
+  end if;
+
+  if recipient is null then
+    select p.author_id into recipient from public.wc_posts p where p.id = related_post;
+  end if;
+
+  if recipient is not null and recipient <> actor then
+    insert into public.wc_notifications (recipient_id, actor_id, post_id, kind, message)
+    values (recipient, actor, related_post, notification_kind, notification_text);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists wc_notify_post_like on public.wc_post_likes;
+create trigger wc_notify_post_like after insert on public.wc_post_likes
+for each row execute function public.wc_create_activity_notification();
+drop trigger if exists wc_notify_comment on public.wc_comments;
+create trigger wc_notify_comment after insert on public.wc_comments
+for each row execute function public.wc_create_activity_notification();
+drop trigger if exists wc_notify_follow on public.wc_follows;
+create trigger wc_notify_follow after insert on public.wc_follows
+for each row execute function public.wc_create_activity_notification();
+
+create or replace function public.wc_notify_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.wc_notifications (recipient_id, actor_id, kind, message)
+  select m.user_id, new.sender_id, 'message', 'sent you a message'
+  from public.wc_conversation_members m
+  where m.conversation_id = new.conversation_id and m.user_id <> new.sender_id;
+  return new;
+end;
+$$;
+drop trigger if exists wc_notify_message on public.wc_messages;
+create trigger wc_notify_message after insert on public.wc_messages
+for each row execute function public.wc_notify_message();
