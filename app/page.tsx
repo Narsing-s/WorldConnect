@@ -10,7 +10,7 @@ import {
   MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
-type Post = { id: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
+type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
 const initialPosts: Post[] = [
   { id: "demo-1", name: "Amara Okafor", handle: "amara.explores", country: "Lagos, Nigeria", time: "12 min ago", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces", body: "A reminder from Lagos today: the best ideas happen when we make room for different perspectives. What is one thing your city has taught you about community? 🌍", image: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=85", likes: 248, comments: 36, tag: "Community", verified: true },
@@ -91,6 +91,7 @@ export default function HomePage() {
         const profile = Array.isArray(row.wc_profiles) ? row.wc_profiles[0] : row.wc_profiles;
         return {
           id: String(row.id),
+          authorId: String(row.author_id),
           name: profile?.display_name || profile?.username || "WorldConnect member",
           handle: profile?.username || "member",
           country: profile?.country || "Around the world",
@@ -114,7 +115,7 @@ export default function HomePage() {
 
   const visiblePosts = useMemo(() => posts.filter(p => {
     const matchesSearch = !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase());
-    const matchesTab = tab === "Following" ? following.includes(p.handle) || p.handle === user?.user_metadata?.username
+    const matchesTab = tab === "Following" ? following.includes(p.authorId || "")
       : tab === "Saved" ? savedIds.includes(p.id)
       : true;
     return matchesSearch && matchesTab;
@@ -248,7 +249,7 @@ export default function HomePage() {
     setNotice("Your post is live.");
     const { data: profile } = await supabase.from("wc_profiles").select("username,display_name,avatar_url,country").eq("id", user.id).maybeSingle();
     const newPost: Post = {
-      id: data.id, name: profile?.display_name || profile?.username || profileName,
+      id: data.id, authorId: user.id, name: profile?.display_name || profile?.username || profileName,
       handle: profile?.username || "member", country: profile?.country || "Around the world",
       time: "Just now", avatar: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
       body, image: composerMode === "photo" ? mediaUrl || undefined : undefined,
