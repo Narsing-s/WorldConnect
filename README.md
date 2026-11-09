@@ -7,15 +7,15 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 ## Features
 
 - Email/password registration, sign-in and sign-out
-- Member profile editor (display name, username, bio, country and avatar URL)
+- Member profile editor (display name, username, bio, country and profile photo upload from device or avatar URL)
 - Community feed with persistent text, photo and video posts
-- Device photo/video picker with upload to Supabase Storage
+- Device photo/video picker with upload to Supabase Storage; profile photo picker and preview
 - Persistent appreciations (likes), comments, follows and saved posts
 - Community discovery, community creation and join/leave actions
 - Private member-to-member conversations
 - Opportunity board for jobs, collaborations, volunteering, events and learning
 - In-app notifications for likes, comments, follows and messages
-- Share posts with the device share sheet, with clipboard fallback
+- Share posts with the device share sheet, with clipboard fallback and direct links that scroll to the shared post
 - Post owner delete and member report actions
 - Responsive desktop and mobile navigation
 
