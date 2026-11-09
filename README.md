@@ -2,50 +2,61 @@
 
 **One world. Millions of connections.**
 
-A responsive global community platform starter built with Next.js, TypeScript, Tailwind CSS and Supabase.
+WorldConnect is a responsive global community platform built with Next.js, TypeScript, Tailwind CSS and Supabase.
+
+## Features
+
+- Email/password registration, sign-in and sign-out
+- Member profile editor (display name, username, bio, country and avatar URL)
+- Community feed with persistent text, photo and video posts
+- Device photo/video picker with upload to Supabase Storage
+- Persistent appreciations (likes), comments, follows and saved posts
+- Community discovery, community creation and join/leave actions
+- Private member-to-member conversations
+- Opportunity board for jobs, collaborations, volunteering, events and learning
+- In-app notifications for likes, comments, follows and messages
+- Share posts with the device share sheet, with clipboard fallback
+- Post owner delete and member report actions
+- Responsive desktop and mobile navigation
 
 ## Run locally
 
 1. Install Node.js 20 or newer.
 2. Run `npm install`.
 3. Copy `.env.example` to `.env.local`.
-4. Add `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+4. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 5. Run `npm run dev` and open http://localhost:3000.
 
-The app includes a polished interactive front-end preview. Social actions in preview mode use local in-memory state; real accounts, durable posts, messaging and moderation require Supabase credentials and the SQL schema in `supabase/schema.sql`.
+## Supabase setup (required)
 
-## Supabase setup
+The application requires a Supabase project for accounts and durable social features.
 
-Run the SQL schema in the Supabase SQL Editor. Configure email authentication and redirect URLs for your local and deployed domains. Only use the publishable/anon key in the browser; never expose a service-role key.
+1. Open the Supabase SQL Editor for the project.
+2. Run the complete `supabase/schema.sql` script from this repository. It creates the WorldConnect-prefixed tables, indexes, RLS policies, profile signup trigger, private conversation helper/RPC, notification triggers, opportunity board and media bucket.
+3. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for:
+   - `http://localhost:3000/auth/callback`
+   - `https://YOUR-DEPLOYED-DOMAIN/auth/callback`
+4. Enable email/password authentication and configure the email provider/confirmation settings you want.
+5. Set the two public Supabase environment variables in Vercel and redeploy.
+
+Only the Supabase publishable/anon key belongs in browser environment variables. Never expose a service-role key in this repository or client code.
+
+## Important behavior
+
+- Without Supabase environment variables, the home page can display its sample feed, but account-backed actions are unavailable.
+- Sample feed entries are demonstration content and are read-only. Posts created by signed-in members are stored in Supabase.
+- Photo/video uploads use the `worldconnect-media` Storage bucket created by the SQL setup. The current upload limit is 50 MB per file.
+- Messages, communities, saved posts, notifications and opportunities require the SQL setup to have been applied successfully.
+- WorldConnect uses a separate `wc_` namespace for its database objects so it does not overwrite unrelated application tables.
 
 ## Deploy
 
-Import this repository into Vercel, set the two `NEXT_PUBLIC_SUPABASE_*` environment variables, and deploy.
+Import this repository into Vercel, configure the two `NEXT_PUBLIC_SUPABASE_*` environment variables, and deploy the `main` branch.
 
-## Roadmap
+## CI
 
-- [x] Responsive social platform foundation
-- [x] Interactive feed preview, navigation, composer and discovery UI
-- [x] Supabase schema and row-level security starter
-- [x] Email/password sign-in, sign-up and email-confirmation callback UI
-- [x] Automatic profile creation trigger in Supabase schema
-- [ ] Production authentication and profile onboarding
-- [ ] Persistent posts, likes, comments and follows
-- [ ] Real-time messaging and notifications
-- [ ] Community moderation and admin console
-- [ ] Mobile app client
+GitHub Actions runs the Next.js production build for pushes and pull requests targeting `main`.
 
+## Security
 
-## Account setup notes
-
-- Visit `/login` to create an account or sign in with email and password.
-- In Supabase Authentication → URL Configuration, set your Site URL and add redirect URLs for `http://localhost:3000/auth/callback` and your deployed domain's `/auth/callback`.
-- Run the updated SQL schema to install the profile-on-signup trigger. If you already ran the earlier schema, rerun the full updated script.
-- Email confirmation behavior follows your Supabase Auth settings. The app cannot send confirmation mail until a Supabase project is connected and its email provider/settings are configured.
-
-
-## Current Supabase connection
-
-`.env.example` contains the Supabase project URL previously shared for Durgamma Menswear, while the publishable key remains a placeholder because its exact value has not been verified. WorldConnect will share that project's Auth user pool if you configure it this way.
-
-The WorldConnect SQL schema has been isolated with `wc_`-prefixed tables, policies, function, and auth trigger so it does not replace Durgamma Menswear's generic tables or trigger. Review `supabase/schema.sql` and run it in the Supabase SQL Editor to create the WorldConnect-specific objects. The new trigger creates rows in `wc_profiles` only. Never add a service-role or secret key to this repository.
+Row-level security is enabled on WorldConnect data tables. Keep the Supabase service-role key private and review database policies before opening the platform to a large public audience.
