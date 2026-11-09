@@ -307,7 +307,7 @@ export default function HomePage() {
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Creators%20Hub";}}><span className="space-dot orange">◈</span>Creators Hub</button>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Tech%20for%20Good";}}><span className="space-dot green">⌘</span>Tech for Good</button>
           <button className="create-space" onClick={()=>{window.location.href="/communities";}}><Plus size={16}/> Create a community</button>
-          <div className="sidebar-bottom"><div className="upgrade-card"><div className="upgrade-icon"><Sparkles size={17}/></div><strong>Make an impact</strong><p>Bring your ideas to a global community.</p><button onClick={()=>{window.location.href="/opportunities";}}>Explore creator tools <ArrowUpRight size={14}/></button></div><div className="sidebar-footer">About · Guidelines · Privacy<br/>© 2026 WorldConnect</div></div>
+          <div className="sidebar-bottom"><div className="upgrade-card"><div className="upgrade-icon"><Sparkles size={17}/></div><strong>Make an impact</strong><p>Bring your ideas to a global community.</p><button onClick={()=>{window.location.href="/opportunities";}}>Explore creator tools <ArrowUpRight size={14}/></button></div><div className="sidebar-footer"><Link href="/about">About</Link> · <Link href="/guidelines">Guidelines</Link> · <Link href="/privacy">Privacy</Link><br/>© 2026 WorldConnect</div></div>
         </aside>
 
         <section className="feed-column">
