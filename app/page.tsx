@@ -19,17 +19,14 @@ const initialPosts: Post[] = [
 ];
 
 const trends = [{tag:"ClimateAction",posts:"18.4K posts"},{tag:"BuildInPublic",posts:"12.8K posts"},{tag:"LearnTogether",posts:"8,240 posts"},{tag:"WorldCulture",posts:"6,190 posts"}];
-const people = [
-  {name:"Maya Chen",role:"Product designer · Singapore",avatar:"https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&h=100&fit=crop&crop=faces"},
-  {name:"Arjun Mehta",role:"Open-source mentor · India",avatar:"https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces"},
-  {name:"Elena Rossi",role:"Educator · Italy",avatar:"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"},
-];
+type Person = {id:string;name:string;role:string;avatar:string};
 
 export default function HomePage() {
   const [tab, setTab] = useState("For you");
   const [posts, setPosts] = useState(initialPosts);
   const [draft, setDraft] = useState("");
   const [following, setFollowing] = useState<string[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [notice, setNotice] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [search, setSearch] = useState("");
@@ -58,6 +55,17 @@ export default function HomePage() {
       setUser(session?.user ?? null);
       setProfileName(String(session?.user?.user_metadata?.display_name || session?.user?.user_metadata?.username || session?.user?.email?.split("@")[0] || "Sign in"));
     });
+    if (supabase.auth.getUser) {
+      supabase.auth.getUser().then(async ({data}) => {
+        if (!data.user) return;
+        const [{data:profiles},{data:follows}] = await Promise.all([
+          supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",data.user.id).limit(5),
+          supabase.from("wc_follows").select("following_id").eq("follower_id",data.user.id)
+        ]);
+        setPeople((profiles||[]).map((p:any)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
+        setFollowing((follows||[]).map((f:any)=>f.following_id));
+      });
+    }
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -256,7 +264,7 @@ export default function HomePage() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Globe2 size={23}/></span><span>world<span className="brand-accent">connect</span></span></a>
         <div className="top-search"><Search size={17}/><input aria-label="Search WorldConnect" placeholder="Search people, topics and communities" value={search} onChange={e=>setSearch(e.target.value)}/><kbd>⌘ K</kbd></div>
-        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button" aria-label="Language"><Languages size={19}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>{window.location.href="/notifications";}}><Bell size={19}/><i/></button><div className="profile-menu"><a className="profile-chip" href={user ? "/profile" : "/login"} aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
+        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>{window.location.href="/notifications";}}><Bell size={19}/><i/></button><div className="profile-menu"><a className="profile-chip" href={user ? "/profile" : "/login"} aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
       </header>
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
@@ -313,7 +321,7 @@ export default function HomePage() {
         <aside className="right-sidebar">
           <div className="world-card"><div className="world-card-top"><span className="eyebrow">GLOBAL PULSE</span><span className="pulse-live"><i/> LIVE</span></div><div className="pulse-map"><div className="map-grid"/><div className="map-glow"/><span className="map-point p1"/><span className="map-point p2"/><span className="map-point p3"/><span className="map-point p4"/><Globe2 size={77} strokeWidth={.8}/></div><div className="pulse-stats"><div><strong>195+</strong><span>Countries</span></div><div><strong>∞</strong><span>Possibilities</span></div><div><strong>1</strong><span>Community</span></div></div><p>Different places. Shared humanity.</p></div>
           <div className="side-card"><div className="side-heading"><h3>Trending worldwide</h3><button onClick={()=>setTab("Explore")}>See all</button></div>{trends.map((t,i)=><button className="trend-row" key={t.tag} onClick={()=>{setSearch(t.tag.replace("#",""));setTab("Explore");}}><span className="trend-number">0{i+1}</span><span><strong>#{t.tag}</strong><small>{t.posts}</small></span><ArrowUpRight size={15}/></button>)}</div>
-          <div className="side-card people-card"><div className="side-heading"><h3>People to discover</h3><button onClick={()=>setTab("Explore")}>Explore</button></div>{people.map(p=><div className="person-row" key={p.name}><img src={p.avatar} alt=""/><span><strong>{p.name}</strong><small>{p.role}</small></span><button className={following.includes(p.name)?"following":""} onClick={()=>setFollowing(v=>v.includes(p.name)?v.filter(n=>n!==p.name):[...v,p.name])}>{following.includes(p.name)?<Check size={15}/>:<Plus size={15}/>}</button></div>)}</div>
+          <div className="side-card people-card"><div className="side-heading"><h3>People to discover</h3><button onClick={()=>setTab("Explore")}>Explore</button></div>{people.map(p=><div className="person-row" key={p.name}><img src={p.avatar} alt=""/><span><strong>{p.name}</strong><small>{p.role}</small></span><button className={following.includes(p.id)?"following":""} onClick={async()=>{if(!user){window.location.href="/login";return;}const supabase=createClient();if(!supabase)return;const exists=following.includes(p.id);const result=exists?await supabase.from("wc_follows").delete().eq("follower_id",user.id).eq("following_id",p.id):await supabase.from("wc_follows").insert({follower_id:user.id,following_id:p.id});if(result.error){setNotice(result.error.message);return;}setFollowing(v=>exists?v.filter(id=>id!==p.id):[...v,p.id]);}}>{following.includes(p.name)?<Check size={15}/>:<Plus size={15}/>}</button></div>)}</div>
           <div className="join-note"><Sparkles size={17}/><p><strong>A bigger world starts with a hello.</strong><br/>Invite a friend to make this community more connected.</p><button onClick={()=>setNotice("Invite links will be available after launch.")}>Invite people <ArrowUpRight size={14}/></button></div>
           <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
         </aside>
