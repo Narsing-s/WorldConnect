@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import {
