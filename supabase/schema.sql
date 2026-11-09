@@ -226,10 +226,11 @@ create policy "Members view their conversations" on public.wc_conversations for 
 drop policy if exists "Members view conversation membership" on public.wc_conversation_members;
 create policy "Members view conversation membership" on public.wc_conversation_members for select to authenticated
   using (public.wc_is_conversation_member(conversation_id));
+-- Conversation creation and membership changes are restricted to the
+-- security-definer wc_start_conversation() RPC. Do not allow clients to
+-- add themselves to arbitrary conversations by guessing an ID.
 drop policy if exists "Users create conversations" on public.wc_conversations;
-create policy "Users create conversations" on public.wc_conversations for insert to authenticated with check (true);
 drop policy if exists "Users add themselves to conversations" on public.wc_conversation_members;
-create policy "Users add themselves to conversations" on public.wc_conversation_members for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "Members read messages" on public.wc_messages;
 create policy "Members read messages" on public.wc_messages for select to authenticated
   using (public.wc_is_conversation_member(wc_messages.conversation_id));
