@@ -287,7 +287,7 @@ export default function HomePage() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Globe2 size={23}/></span><span>world<span className="brand-accent">connect</span></span></a>
-        <div className="top-search"><Search size={17}/><input aria-label="Search WorldConnect" placeholder="Search people, topics and communities" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+        <div className="top-search"><Search size={17}/><input aria-label="Search WorldConnect" placeholder="Search posts and topics" value={search} onChange={e=>setSearch(e.target.value)}/></div>
         <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>{window.location.href="/notifications";}}><Bell size={19}/></button><div className="profile-menu"><a className="profile-chip" href={user ? "/profile" : "/login"} aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
       </header>
       <div className="layout">
