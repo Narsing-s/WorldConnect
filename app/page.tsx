@@ -149,16 +149,6 @@ export default function HomePage() {
     setCommentsByPost(current => ({ ...current, [post.id]: (data || []).map(item => item.body) }));
   }
 
-  async function openComments(post: Post) {
-    setCommentPost(post);
-    setCommentDraft("");
-    if (!user || post.id.startsWith("demo-")) return;
-    const supabase = createClient();
-    if (!supabase) return;
-    const { data, error } = await supabase.from("wc_comments").select("body").eq("post_id", post.id).order("created_at", { ascending: true });
-    if (error) { setNotice("Could not load comments: " + error.message); return; }
-    setCommentsByPost(current => ({ ...current, [post.id]: (data || []).map(item => item.body) }));
-  }
 
   async function submitComment() {
     if (!commentPost || !commentDraft.trim()) return;
