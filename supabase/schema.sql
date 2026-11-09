@@ -145,3 +145,100 @@ drop trigger if exists wc_on_auth_user_created on auth.users;
 create trigger wc_on_auth_user_created
   after insert on auth.users
   for each row execute function public.wc_handle_new_user();
+
+
+-- Durable social features used by the application.
+alter table public.wc_posts add column if not exists video_url text;
+alter table public.wc_posts add column if not exists updated_at timestamptz not null default now();
+
+create table if not exists public.wc_saved_posts (
+  user_id uuid not null references public.wc_profiles(id) on delete cascade,
+  post_id uuid not null references public.wc_posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+
+create table if not exists public.wc_notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references public.wc_profiles(id) on delete cascade,
+  actor_id uuid references public.wc_profiles(id) on delete set null,
+  post_id uuid references public.wc_posts(id) on delete cascade,
+  kind text not null check (kind in ('like','comment','follow','message')),
+  message text not null default '',
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.wc_conversations (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  last_message_at timestamptz not null default now()
+);
+
+create table if not exists public.wc_conversation_members (
+  conversation_id uuid not null references public.wc_conversations(id) on delete cascade,
+  user_id uuid not null references public.wc_profiles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+
+create table if not exists public.wc_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.wc_conversations(id) on delete cascade,
+  sender_id uuid not null references public.wc_profiles(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 4000),
+  created_at timestamptz not null default now()
+);
+
+alter table public.wc_saved_posts enable row level security;
+alter table public.wc_notifications enable row level security;
+alter table public.wc_conversations enable row level security;
+alter table public.wc_conversation_members enable row level security;
+alter table public.wc_messages enable row level security;
+
+drop policy if exists "Users manage their saved posts" on public.wc_saved_posts;
+create policy "Users manage their saved posts" on public.wc_saved_posts for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Users view their notifications" on public.wc_notifications;
+create policy "Users view their notifications" on public.wc_notifications for select to authenticated
+  using (auth.uid() = recipient_id);
+drop policy if exists "Users update their notifications" on public.wc_notifications;
+create policy "Users update their notifications" on public.wc_notifications for update to authenticated
+  using (auth.uid() = recipient_id) with check (auth.uid() = recipient_id);
+
+drop policy if exists "Members view their conversations" on public.wc_conversations;
+create policy "Members view their conversations" on public.wc_conversations for select to authenticated
+  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = id and m.user_id = auth.uid()));
+drop policy if exists "Members view conversation membership" on public.wc_conversation_members;
+create policy "Members view conversation membership" on public.wc_conversation_members for select to authenticated
+  using (user_id = auth.uid() or exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+drop policy if exists "Users create conversations" on public.wc_conversations;
+create policy "Users create conversations" on public.wc_conversations for insert to authenticated with check (true);
+drop policy if exists "Users add themselves to conversations" on public.wc_conversation_members;
+create policy "Users add themselves to conversations" on public.wc_conversation_members for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists "Members read messages" on public.wc_messages;
+create policy "Members read messages" on public.wc_messages for select to authenticated
+  using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+drop policy if exists "Members send messages" on public.wc_messages;
+create policy "Members send messages" on public.wc_messages for insert to authenticated
+  with check (sender_id = auth.uid() and exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+
+-- Public media bucket. Uploads are scoped to the authenticated user's folder.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('worldconnect-media', 'worldconnect-media', true, 52428800, array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'])
+on conflict (id) do update set public = true, file_size_limit = 52428800, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "WorldConnect media is publicly readable" on storage.objects;
+create policy "WorldConnect media is publicly readable" on storage.objects for select
+  using (bucket_id = 'worldconnect-media');
+drop policy if exists "Users upload their own WorldConnect media" on storage.objects;
+create policy "Users upload their own WorldConnect media" on storage.objects for insert to authenticated
+  with check (bucket_id = 'worldconnect-media' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "Users update their own WorldConnect media" on storage.objects;
+create policy "Users update their own WorldConnect media" on storage.objects for update to authenticated
+  using (bucket_id = 'worldconnect-media' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'worldconnect-media' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "Users delete their own WorldConnect media" on storage.objects;
+create policy "Users delete their own WorldConnect media" on storage.objects for delete to authenticated
+  using (bucket_id = 'worldconnect-media' and (storage.foldername(name))[1] = auth.uid()::text);
