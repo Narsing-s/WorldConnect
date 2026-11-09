@@ -212,7 +212,7 @@ create policy "Members view their conversations" on public.wc_conversations for 
   using (exists (select 1 from public.wc_conversation_members m where m.conversation_id = id and m.user_id = auth.uid()));
 drop policy if exists "Members view conversation membership" on public.wc_conversation_members;
 create policy "Members view conversation membership" on public.wc_conversation_members for select to authenticated
-  using (user_id = auth.uid() or exists (select 1 from public.wc_conversation_members m where m.conversation_id = conversation_id and m.user_id = auth.uid()));
+  using (user_id = auth.uid());
 drop policy if exists "Users create conversations" on public.wc_conversations;
 create policy "Users create conversations" on public.wc_conversations for insert to authenticated with check (true);
 drop policy if exists "Users add themselves to conversations" on public.wc_conversation_members;
