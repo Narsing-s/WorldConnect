@@ -400,3 +400,20 @@ $$;
 drop trigger if exists wc_notify_message on public.wc_messages;
 create trigger wc_notify_message after insert on public.wc_messages
 for each row execute function public.wc_notify_message();
+
+-- Explicit API privileges: RLS remains responsible for row-level access.
+grant select on public.wc_profiles, public.wc_posts, public.wc_post_likes,
+  public.wc_comments, public.wc_follows, public.wc_communities,
+  public.wc_community_members, public.wc_opportunities to anon;
+grant select, insert, update, delete on public.wc_profiles, public.wc_posts,
+  public.wc_post_likes, public.wc_comments, public.wc_follows,
+  public.wc_communities, public.wc_community_members, public.wc_saved_posts,
+  public.wc_conversations, public.wc_conversation_members, public.wc_messages,
+  public.wc_opportunities, public.wc_reports to authenticated;
+grant select, update on public.wc_notifications to authenticated;
+
+revoke all on function public.wc_is_conversation_member(uuid) from public;
+grant execute on function public.wc_is_conversation_member(uuid) to authenticated;
+revoke all on function public.wc_start_conversation(uuid) from public;
+grant execute on function public.wc_start_conversation(uuid) to authenticated;
+
