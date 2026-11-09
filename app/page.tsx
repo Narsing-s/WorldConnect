@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import {
   Bell, Bookmark, Compass, Globe2, Hash, Heart, Home, ImagePlus, MessageCircle,
   MoreHorizontal, Plus, Search, Send, ShieldCheck, Sparkles, Users, Video,
@@ -55,7 +56,7 @@ export default function HomePage() {
     else videoInputRef.current?.click();
   }
 
-  function handleMediaChange(event: React.ChangeEvent<HTMLInputElement>, kind: "photo" | "video") {
+  function handleMediaChange(event: ChangeEvent<HTMLInputElement>, kind: "photo" | "video") {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
