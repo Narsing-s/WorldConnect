@@ -18,7 +18,7 @@ const initialPosts: Post[] = [
   { id: "demo-3", name: "Sofia Laurent", handle: "sofia.learns", country: "Lyon, France", time: "1 hr ago", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=faces", body: "This week I'm hosting a free language exchange: French, English, Telugu and Spanish learners welcome. Learning feels easier when we learn together. ✨", likes: 96, comments: 12, tag: "Learning" },
 ];
 
-const trends = [{tag:"ClimateAction",posts:"18.4K posts"},{tag:"BuildInPublic",posts:"12.8K posts"},{tag:"LearnTogether",posts:"8,240 posts"},{tag:"WorldCulture",posts:"6,190 posts"}];
+const trends = [{tag:"ClimateAction"},{tag:"BuildInPublic"},{tag:"LearnTogether"},{tag:"WorldCulture"}];
 type Person = {id:string;name:string;role:string;avatar:string};
 
 export default function HomePage() {
@@ -202,6 +202,17 @@ export default function HomePage() {
     }
   }
 
+  async function invitePeople() {
+    const url = window.location.origin;
+    try {
+      if (navigator.share) await navigator.share({ title: "Join me on WorldConnect", text: "Let's connect and share ideas with people around the world.", url });
+      else if (navigator.clipboard) { await navigator.clipboard.writeText(url); setNotice("WorldConnect invite link copied."); }
+      else setNotice("Copy this invite link from your browser: " + url);
+    } catch (error) {
+      if (error instanceof Error && error.name !== "AbortError") setNotice("Invite sharing is unavailable in this browser.");
+    }
+  }
+
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
@@ -286,12 +297,12 @@ export default function HomePage() {
       <header className="topbar">
         <a className="brand" href="#"><span className="brand-mark"><Globe2 size={23}/></span><span>world<span className="brand-accent">connect</span></span></a>
         <div className="top-search"><Search size={17}/><input aria-label="Search WorldConnect" placeholder="Search people, topics and communities" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>{window.location.href="/notifications";}}><Bell size={19}/><i/></button><div className="profile-menu"><a className="profile-chip" href={user ? "/profile" : "/login"} aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
+        <div className="top-actions"><button className="icon-button mobile-only" aria-label="Open menu" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={20}/></button><button className="icon-button notification" aria-label="Notifications" onClick={()=>{window.location.href="/notifications";}}><Bell size={19}/></button><div className="profile-menu"><a className="profile-chip" href={user ? "/profile" : "/login"} aria-label={user ? `Signed in as ${profileName}. Open profile` : "Sign in to WorldConnect"}><span className="profile-icon"><UserRound size={19}/></span><span>{user ? profileName : "Sign in / Profile"}</span></a>{user&&<button className="profile-signout" onClick={signOut}><LogOut size={14}/> Sign out</button>}</div></div>
       </header>
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
           <div className="sidebar-label">MENU</div>
-          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="For you"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("For you");return;}if(label==="Explore"){setTab("Explore");return;}if(label==="Saved"){setTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span>{label==="Messages"&&<b className="nav-count">3</b>}</button>)}</nav>
+          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="For you"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("For you");return;}if(label==="Explore"){setTab("Explore");return;}if(label==="Saved"){setTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
           <div className="sidebar-divider"/>
           <div className="sidebar-label">YOUR SPACES</div>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Learning%20Circle";}}><span className="space-dot purple">✦</span>Learning Circle</button>
@@ -342,10 +353,10 @@ export default function HomePage() {
         </section>
 
         <aside className="right-sidebar">
-          <div className="world-card"><div className="world-card-top"><span className="eyebrow">GLOBAL PULSE</span><span className="pulse-live"><i/> LIVE</span></div><div className="pulse-map"><div className="map-grid"/><div className="map-glow"/><span className="map-point p1"/><span className="map-point p2"/><span className="map-point p3"/><span className="map-point p4"/><Globe2 size={77} strokeWidth={.8}/></div><div className="pulse-stats"><div><strong>195+</strong><span>Countries</span></div><div><strong>∞</strong><span>Possibilities</span></div><div><strong>1</strong><span>Community</span></div></div><p>Different places. Shared humanity.</p></div>
-          <div className="side-card"><div className="side-heading"><h3>Trending worldwide</h3><button onClick={()=>setTab("Explore")}>See all</button></div>{trends.map((t,i)=><button className="trend-row" key={t.tag} onClick={()=>{setSearch(t.tag.replace("#",""));setTab("Explore");}}><span className="trend-number">0{i+1}</span><span><strong>#{t.tag}</strong><small>{t.posts}</small></span><ArrowUpRight size={15}/></button>)}</div>
+          <div className="world-card"><div className="world-card-top"><span className="eyebrow">GLOBAL PULSE</span><span className="pulse-live">GLOBAL COMMUNITY</span></div><div className="pulse-map"><div className="map-grid"/><div className="map-glow"/><span className="map-point p1"/><span className="map-point p2"/><span className="map-point p3"/><span className="map-point p4"/><Globe2 size={77} strokeWidth={.8}/></div><div className="pulse-stats"><div><strong>195+</strong><span>Countries</span></div><div><strong>∞</strong><span>Possibilities</span></div><div><strong>1</strong><span>Community</span></div></div><p>Different places. Shared humanity.</p></div>
+          <div className="side-card"><div className="side-heading"><h3>Trending worldwide</h3><button onClick={()=>setTab("Explore")}>See all</button></div>{trends.map((t,i)=><button className="trend-row" key={t.tag} onClick={()=>{setSearch(t.tag.replace("#",""));setTab("Explore");}}><span className="trend-number">0{i+1}</span><span><strong>#{t.tag}</strong><small>Trending topic</small></span><ArrowUpRight size={15}/></button>)}</div>
           <div className="side-card people-card"><div className="side-heading"><h3>People to discover</h3><button onClick={()=>setTab("Explore")}>Explore</button></div>{people.map(p=><div className="person-row" key={p.name}><img src={p.avatar} alt=""/><span><strong>{p.name}</strong><small>{p.role}</small></span><button className={following.includes(p.id)?"following":""} onClick={async()=>{if(!user){window.location.href="/login";return;}const supabase=createClient();if(!supabase)return;const exists=following.includes(p.id);const result=exists?await supabase.from("wc_follows").delete().eq("follower_id",user.id).eq("following_id",p.id):await supabase.from("wc_follows").insert({follower_id:user.id,following_id:p.id});if(result.error){setNotice(result.error.message);return;}setFollowing(v=>exists?v.filter(id=>id!==p.id):[...v,p.id]);}}>{following.includes(p.id)?<Check size={15}/>:<Plus size={15}/>}</button></div>)}</div>
-          <div className="join-note"><Sparkles size={17}/><p><strong>A bigger world starts with a hello.</strong><br/>Invite a friend to make this community more connected.</p><button onClick={()=>setNotice("Invite links will be available after launch.")}>Invite people <ArrowUpRight size={14}/></button></div>
+          <div className="join-note"><Sparkles size={17}/><p><strong>A bigger world starts with a hello.</strong><br/>Invite a friend to make this community more connected.</p><button onClick={invitePeople}>Invite people <ArrowUpRight size={14}/></button></div>
           <div className="preview-label"><span/> PREVIEW EXPERIENCE · DEMO CONTENT</div>
         </aside>
       </div>
