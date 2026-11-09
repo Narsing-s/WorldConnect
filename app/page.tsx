@@ -10,12 +10,12 @@ import {
   MessageSquareText, ArrowUpRight, X, Menu, Check, Languages, BriefcaseBusiness, UserRound, LogOut
 } from "lucide-react";
 
-type Post = { id: number; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
+type Post = { id: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
 const initialPosts: Post[] = [
-  { id: 1, name: "Amara Okafor", handle: "amara.explores", country: "Lagos, Nigeria", time: "12 min ago", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces", body: "A reminder from Lagos today: the best ideas happen when we make room for different perspectives. What is one thing your city has taught you about community? 🌍", image: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=85", likes: 248, comments: 36, tag: "Community", verified: true },
-  { id: 2, name: "Daniel Kim", handle: "danielbuilds", country: "Seoul, South Korea", time: "38 min ago", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=faces", body: "Just opened my first open-source project to contributors worldwide. Looking for designers, developers and curious beginners. Let's build something useful together. 💡", likes: 132, comments: 19, tag: "Technology" },
-  { id: 3, name: "Sofia Laurent", handle: "sofia.learns", country: "Lyon, France", time: "1 hr ago", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=faces", body: "This week I'm hosting a free language exchange: French, English, Telugu and Spanish learners welcome. Learning feels easier when we learn together. ✨", likes: 96, comments: 12, tag: "Learning" },
+  { id: "demo-1", name: "Amara Okafor", handle: "amara.explores", country: "Lagos, Nigeria", time: "12 min ago", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces", body: "A reminder from Lagos today: the best ideas happen when we make room for different perspectives. What is one thing your city has taught you about community? 🌍", image: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=85", likes: 248, comments: 36, tag: "Community", verified: true },
+  { id: "demo-2", name: "Daniel Kim", handle: "danielbuilds", country: "Seoul, South Korea", time: "38 min ago", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=faces", body: "Just opened my first open-source project to contributors worldwide. Looking for designers, developers and curious beginners. Let's build something useful together. 💡", likes: 132, comments: 19, tag: "Technology" },
+  { id: "demo-3", name: "Sofia Laurent", handle: "sofia.learns", country: "Lyon, France", time: "1 hr ago", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=faces", body: "This week I'm hosting a free language exchange: French, English, Telugu and Spanish learners welcome. Learning feels easier when we learn together. ✨", likes: 96, comments: 12, tag: "Learning" },
 ];
 
 const trends = [{tag:"ClimateAction",posts:"18.4K posts"},{tag:"BuildInPublic",posts:"12.8K posts"},{tag:"LearnTogether",posts:"8,240 posts"},{tag:"WorldCulture",posts:"6,190 posts"}];
@@ -37,7 +37,9 @@ export default function HomePage() {
   const [profileName, setProfileName] = useState("Sign in");
   const [commentPost, setCommentPost] = useState<Post | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
-  const [commentsByPost, setCommentsByPost] = useState<Record<number, string[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, string[]>>({});
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [feedLoading, setFeedLoading] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [composerMode, setComposerMode] = useState<"discussion" | "photo" | "video">("discussion");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -64,17 +66,97 @@ export default function HomePage() {
     return () => URL.revokeObjectURL(mediaPreview);
   }, [mediaPreview]);
 
-  const visiblePosts = useMemo(() => posts.filter(p => !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase())), [posts, search]);
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    let active = true;
+    setFeedLoading(true);
+    Promise.all([
+      supabase.from("wc_posts").select("id,author_id,body,image_url,video_url,created_at,wc_profiles(username,display_name,avatar_url,country),wc_post_likes(user_id),wc_comments(id)").order("created_at", { ascending: false }).limit(100),
+      supabase.from("wc_saved_posts").select("post_id").eq("user_id", user.id)
+    ]).then(([feed, saved]) => {
+      if (!active) return;
+      if (feed.error) { setNotice("Could not load posts: " + feed.error.message); return; }
+      const rows = (feed.data || []) as unknown as Array<Record<string, any>>;
+      const mapped: Post[] = rows.map(row => {
+        const profile = Array.isArray(row.wc_profiles) ? row.wc_profiles[0] : row.wc_profiles;
+        return {
+          id: String(row.id),
+          name: profile?.display_name || profile?.username || "WorldConnect member",
+          handle: profile?.username || "member",
+          country: profile?.country || "Around the world",
+          time: new Date(row.created_at).toLocaleString(),
+          avatar: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
+          body: row.body,
+          image: row.image_url || undefined,
+          video: row.video_url || undefined,
+          likes: row.wc_post_likes?.length || 0,
+          comments: row.wc_comments?.length || 0,
+          tag: "Community",
+          liked: (row.wc_post_likes || []).some((like: {user_id:string}) => like.user_id === user.id)
+        };
+      });
+      setPosts(mapped);
+      if (!saved.error) setSavedIds((saved.data || []).map((item: {post_id:string}) => item.post_id));
+    }).catch(() => setNotice("Unable to load the community feed. Please try again."))
+      .finally(() => { if (active) setFeedLoading(false); });
+    return () => { active = false; };
+  }, [user]);
 
-  function toggleLike(id: number) {
-    setPosts(current => current.map(p => p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p));
+  const visiblePosts = useMemo(() => posts.filter(p => {
+    const matchesSearch = !search || (p.body + p.name + p.tag).toLowerCase().includes(search.toLowerCase());
+    const matchesTab = tab === "Following" ? following.includes(p.handle) || p.handle === user?.user_metadata?.username
+      : tab === "Saved" ? savedIds.includes(p.id)
+      : true;
+    return matchesSearch && matchesTab;
+  }), [posts, search, tab, following, savedIds, user]);
+
+  async function toggleLike(id: string) {
+    if (!user) { window.location.href = "/login"; return; }
+    const post = posts.find(item => item.id === id);
+    if (!post || id.startsWith("demo-")) { setNotice("Sign in and connect the database to appreciate community posts."); return; }
+    const supabase = createClient();
+    if (!supabase) return;
+    const wasLiked = Boolean(post.liked);
+    setPosts(current => current.map(p => p.id === id ? { ...p, liked: !wasLiked, likes: p.likes + (wasLiked ? -1 : 1) } : p));
+    const result = wasLiked
+      ? await supabase.from("wc_post_likes").delete().eq("post_id", id).eq("user_id", user.id)
+      : await supabase.from("wc_post_likes").insert({ post_id: id, user_id: user.id });
+    if (result.error) {
+      setPosts(current => current.map(p => p.id === id ? { ...p, liked: wasLiked, likes: p.likes + (wasLiked ? 1 : -1) } : p));
+      setNotice("Like could not be saved: " + result.error.message);
+    }
   }
 
-  function submitComment() {
+  async function submitComment() {
     if (!commentPost || !commentDraft.trim()) return;
+    if (!user) { window.location.href = "/login"; return; }
     const value = commentDraft.trim();
+    const supabase = createClient();
+    if (!supabase || commentPost.id.startsWith("demo-")) {
+      setNotice("Comments on sample posts are read-only. Publish a post from your account to start a discussion.");
+      return;
+    }
+    const { error } = await supabase.from("wc_comments").insert({ post_id: commentPost.id, author_id: user.id, body: value });
+    if (error) { setNotice("Comment could not be posted: " + error.message); return; }
     setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), value] }));
+    setPosts(current => current.map(p => p.id === commentPost.id ? { ...p, comments: p.comments + 1 } : p));
     setCommentDraft("");
+  }
+
+  async function toggleSaved(post: Post) {
+    if (!user) { window.location.href = "/login"; return; }
+    if (post.id.startsWith("demo-")) { setNotice("Sample posts cannot be saved. Save posts published by community members."); return; }
+    const supabase = createClient();
+    if (!supabase) return;
+    const exists = savedIds.includes(post.id);
+    const result = exists
+      ? await supabase.from("wc_saved_posts").delete().eq("user_id", user.id).eq("post_id", post.id)
+      : await supabase.from("wc_saved_posts").insert({ user_id: user.id, post_id: post.id });
+    if (result.error) { setNotice("Saved item could not be updated: " + result.error.message); return; }
+    setSavedIds(current => exists ? current.filter(id => id !== post.id) : [...current, post.id]);
+    setNotice(exists ? "Removed from Saved." : "Post saved to your collection.");
   }
 
   async function sharePost(post: Post) {
@@ -130,30 +212,42 @@ export default function HomePage() {
     clearMedia();
   }
 
-  function publish() {
+  async function publish() {
     if (!draft.trim() && !mediaFile) return;
+    if (!user) { window.location.href = "/login"; return; }
+    const supabase = createClient();
+    if (!supabase) { setNotice("Connect Supabase to publish posts."); return; }
     const body = draft.trim() || (composerMode === "photo" ? "Shared a photo." : composerMode === "video" ? "Shared a video." : "");
-    const newPost: Post = {
-      id: Date.now(),
-      name: "You",
-      handle: "your.profile",
-      country: "Your corner of the world",
-      time: "Just now",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
-      body,
-      ...(mediaFile && composerMode === "photo" ? { image: mediaPreview } : {}),
-      ...(mediaFile && composerMode === "video" ? { video: mediaPreview } : {}),
-      likes: 0,
-      comments: 0,
-      tag: composerMode === "discussion" ? "Discussion" : "Community"
-    };
-    setPosts(current => [newPost, ...current]);
+    let mediaUrl: string | null = null;
+    if (mediaFile) {
+      if (mediaFile.size > 50 * 1024 * 1024) { setNotice("Media must be 50 MB or smaller."); return; }
+      const extension = mediaFile.name.split(".").pop()?.toLowerCase() || (composerMode === "photo" ? "jpg" : "mp4");
+      const path = user.id + "/" + crypto.randomUUID() + "." + extension;
+      const { error: uploadError } = await supabase.storage.from("worldconnect-media").upload(path, mediaFile, { contentType: mediaFile.type, upsert: false });
+      if (uploadError) { setNotice("Media upload failed: " + uploadError.message); return; }
+      mediaUrl = supabase.storage.from("worldconnect-media").getPublicUrl(path).data.publicUrl;
+    }
+    const { data, error } = await supabase.from("wc_posts").insert({
+      author_id: user.id, body: body || "Shared a moment.",
+      image_url: mediaFile && composerMode === "photo" ? mediaUrl : null,
+      video_url: mediaFile && composerMode === "video" ? mediaUrl : null
+    }).select("id").single();
+    if (error) { setNotice("Post could not be published: " + error.message); return; }
     setDraft("");
     setMediaFile(null);
     setMediaPreview("");
     setShowComposer(false);
-    setNotice("Your post was added to this preview feed. Media is available in this browser session.");
-    window.setTimeout(() => setNotice(""), 4500);
+    setNotice("Your post is live.");
+    const { data: profile } = await supabase.from("wc_profiles").select("username,display_name,avatar_url,country").eq("id", user.id).maybeSingle();
+    const newPost: Post = {
+      id: data.id, name: profile?.display_name || profile?.username || profileName,
+      handle: profile?.username || "member", country: profile?.country || "Around the world",
+      time: "Just now", avatar: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
+      body, image: composerMode === "photo" ? mediaUrl || undefined : undefined,
+      video: composerMode === "video" ? mediaUrl || undefined : undefined,
+      likes: 0, comments: 0, tag: composerMode === "discussion" ? "Discussion" : "Community"
+    };
+    setPosts(current => [newPost, ...current]);
   }
   const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Saved",icon:Bookmark}];
 
@@ -204,13 +298,13 @@ export default function HomePage() {
             <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()&&!mediaFile} onClick={publish}>Share with the world <Send size={15}/></button></div>
           </div></div>}
           <div className="post-list">{visiblePosts.map(post=><article className="post-card" key={post.id}>
-            <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>setNotice("Post options will be available after sign-in.")}><MoreHorizontal size={20}/></button></div>
+            <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>{if(!user){window.location.href="/login";return;} if(post.name==="You" || post.handle===user.user_metadata?.username){if(window.confirm("Delete this post?")){const supabase=createClient();if(supabase&&!post.id.startsWith("demo-"))supabase.from("wc_posts").delete().eq("id",post.id).then(({error})=>{if(error)setNotice(error.message);else setPosts(current=>current.filter(p=>p.id!==post.id));});}}else setNotice("Use the report option in the post menu to flag content for review.");}}><MoreHorizontal size={20}/></button></div>
             <p className="post-body">{post.body}</p>
             {post.image&&<img className="post-image" src={post.image} alt="Community shared photo"/>}
             {post.video&&<video className="post-video" src={post.video} controls playsInline preload="metadata" aria-label="Community shared video"/>}
             <div className="post-tag"><Hash size={13}/>{post.tag}</div>
             <div className="post-stats"><span>{post.likes.toLocaleString()} appreciations</span><button className="comment-count" onClick={()=>{setCommentPost(post);setCommentDraft("");}}>{post.comments + (commentsByPost[post.id]?.length || 0)} comments</button></div>
-            <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>{setCommentPost(post);setCommentDraft("");}}><MessageCircle size={18}/> Comment</button><button onClick={()=>sharePost(post)}><Send size={17}/> Share</button><button className="save-action" onClick={()=>setNotice("Saved items will sync after sign-in.")}><Bookmark size={17}/></button></div>
+            <div className="post-actions"><button className={post.liked?"liked":""} onClick={()=>toggleLike(post.id)}><Heart size={18} fill={post.liked?"currentColor":"none"}/> Appreciate</button><button onClick={()=>{setCommentPost(post);setCommentDraft("");}}><MessageCircle size={18}/> Comment</button><button onClick={()=>sharePost(post)}><Send size={17}/> Share</button><button className={`save-action ${savedIds.includes(post.id) ? "liked" : ""}`} onClick={()=>toggleSaved(post)}><Bookmark size={17}/></button></div>
           </article>)}</div>
           {visiblePosts.length===0&&<div className="empty-state"><Search size={24}/><strong>No matching posts</strong><span>Try another keyword to explore the community.</span></div>}
           <div className="end-feed"><span/><Globe2 size={17}/><span/> You're at the edge of this preview <span/></div>
