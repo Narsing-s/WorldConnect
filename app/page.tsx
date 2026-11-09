@@ -37,6 +37,7 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [profileName, setProfileName] = useState("Sign in");
+  const [profileAvatar, setProfileAvatar] = useState("");
   const [commentPost, setCommentPost] = useState<Post | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
@@ -64,14 +65,14 @@ export default function HomePage() {
       const currentUser = data.user;
       const [{data:ownProfile},{data:profiles},{data:follows}] = await Promise.all([
         currentUser
-          ? supabase.from("wc_profiles").select("display_name,username").eq("id",currentUser.id).maybeSingle()
+          ? supabase.from("wc_profiles").select("display_name,username,avatar_url").eq("id",currentUser.id).maybeSingle()
           : Promise.resolve({data:null}),
         supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",currentUser?.id || "00000000-0000-0000-0000-000000000000").limit(5),
         currentUser
           ? supabase.from("wc_follows").select("following_id").eq("follower_id",currentUser.id)
           : Promise.resolve({data: [] as {following_id:string}[]})
       ]);
-      if (ownProfile) setProfileName(ownProfile.display_name || ownProfile.username || currentUser?.email?.split("@")[0] || "Profile");
+      if (ownProfile) { setProfileName(ownProfile.display_name || ownProfile.username || currentUser?.email?.split("@")[0] || "Profile"); setProfileAvatar(ownProfile.avatar_url || ""); }
       setPeople((profiles||[]).map((p:MemberSummary)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
       setFollowing((follows||[]).map((f:FollowSummary)=>f.following_id));
     });
@@ -316,9 +317,9 @@ export default function HomePage() {
 
         <section className="feed-column">
           <div className="welcome-row"><div><div className="eyebrow"><span className="live-dot"/> THE WORLD, IN ONE PLACE</div><h1>Your world. <em>Your people.</em></h1><p>Ideas travel further when we connect.</p></div><div className="world-orb"><Globe2 size={37}/><span>195+ countries</span></div></div>
-          <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>selectFeedTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>selectFeedTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Personalized</span></div>
+          <div className="feed-tabs"><button className={tab==="For you"?"selected":""} onClick={()=>setTab("For you")}>For you</button><button className={tab==="Following"?"selected":""} onClick={()=>selectFeedTab("Following")}>Following</button><button className={tab==="Latest"?"selected":""} onClick={()=>selectFeedTab("Latest")}>Latest</button><span className="feed-filter"><Sparkles size={14}/> Community feed</span></div>
           <div className="composer">
-            <img className="avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces" alt="Your avatar"/>
+            <img className="avatar" src={profileAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"} alt="Your avatar"/>
             <button className="composer-prompt" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}>Share an idea with the world...</button>
             <button className="composer-add" aria-label="Create post" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><Plus size={20}/></button>
             <div className="composer-tools">
