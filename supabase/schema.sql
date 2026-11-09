@@ -128,7 +128,7 @@ begin
 
   insert into public.wc_profiles (id, username, display_name)
   values (new.id, base_username, clean_display_name)
-  on conflict (id) do nothing;
+  on conflict do nothing;
 
   if not exists (select 1 from public.wc_profiles where id = new.id) then
     final_username := left(base_username, 21) || '_' || substr(replace(new.id::text, '-', ''), 1, 8);
