@@ -335,12 +335,12 @@ declare
   notification_kind text;
   notification_text text;
 begin
-  actor := new.user_id;
-  related_post := new.post_id;
-  notification_kind := 'like';
-  notification_text := 'appreciated your post';
-
-  if tg_table_name = 'wc_comments' then
+  if tg_table_name = 'wc_post_likes' then
+    actor := new.user_id;
+    related_post := new.post_id;
+    notification_kind := 'like';
+    notification_text := 'appreciated your post';
+  elsif tg_table_name = 'wc_comments' then
     actor := new.author_id;
     related_post := new.post_id;
     notification_kind := 'comment';
