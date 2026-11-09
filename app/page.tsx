@@ -13,7 +13,7 @@ import {
 
 type MemberSummary = {id:string;username:string;display_name:string|null;avatar_url:string|null;country:string|null};
 type FollowSummary = {following_id:string};
-type FeedRow = {id:string;author_id:string;body:string;image_url:string|null;video_url:string|null;created_at:string;wc_profiles:{username:string;display_name:string|null;avatar_url:string|null;country:string|null}|Array<{username:string;display_name:string|null;avatar_url:string|null;country:string|null}>|null;wc_post_likes:{user_id:string}[];wc_comments:{id:string}[]};
+type FeedRow = {id:string;author_id:string;body:string;image_url:string|null;video_url:string|null;created_at:string;author:{username:string;display_name:string|null;avatar_url:string|null;country:string|null}|Array<{username:string;display_name:string|null;avatar_url:string|null;country:string|null}>|null;wc_post_likes:{user_id:string}[];wc_comments:{id:string}[]};
 type Comment = { id: string; body: string; author_id: string; created_at: string; author?: { display_name: string; username: string } | null };
 type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
@@ -93,14 +93,14 @@ export default function HomePage() {
       ? supabase.from("wc_saved_posts").select("post_id").eq("user_id", user.id)
       : Promise.resolve({ data: [] as { post_id: string }[], error: null });
     Promise.all([
-      supabase.from("wc_posts").select("id,author_id,body,image_url,video_url,created_at,wc_profiles(username,display_name,avatar_url,country),wc_post_likes(user_id),wc_comments(id)").order("created_at", { ascending: false }).limit(100),
+      supabase.from("wc_posts").select("id,author_id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name,avatar_url,country),wc_post_likes(user_id),wc_comments(id)").order("created_at", { ascending: false }).limit(100),
       savedQuery
     ]).then(([feed, saved]) => {
       if (!active) return;
       if (feed.error) { setNotice("Could not load posts: " + feed.error.message); return; }
       const rows = (feed.data || []) as unknown as FeedRow[];
       const mapped: Post[] = rows.map(row => {
-        const profile = Array.isArray(row.wc_profiles) ? row.wc_profiles[0] : row.wc_profiles;
+        const profile = Array.isArray(row.author) ? row.author[0] : row.author;
         return {
           id: String(row.id),
           authorId: String(row.author_id),
