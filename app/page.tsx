@@ -39,6 +39,7 @@ export default function HomePage() {
   const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [composerMode, setComposerMode] = useState<"discussion" | "photo" | "video">("discussion");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -243,11 +244,11 @@ export default function HomePage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (kind === "photo" && !file.type.startsWith("image/")) {
+    if (kind === "photo" && !["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)) {
       setNotice("Please choose an image file.");
       return;
     }
-    if (kind === "video" && !file.type.startsWith("video/")) {
+    if (kind === "video" && !["video/mp4","video/webm","video/quicktime"].includes(file.type)) {
       setNotice("Please choose a video file.");
       return;
     }
@@ -267,41 +268,80 @@ export default function HomePage() {
   }
 
   async function publish() {
-    if (!draft.trim() && !mediaFile) return;
+    if (publishing || (!draft.trim() && !mediaFile)) return;
     if (!user) { window.location.href = "/login"; return; }
     const supabase = createClient();
-    if (!supabase) { setNotice("Connect Supabase to publish posts."); return; }
-    const body = draft.trim() || (composerMode === "photo" ? "Shared a photo." : composerMode === "video" ? "Shared a video." : "");
-    let mediaUrl: string | null = null;
-    if (mediaFile) {
-      if (mediaFile.size > 50 * 1024 * 1024) { setNotice("Media must be 50 MB or smaller."); return; }
-      const extension = mediaFile.name.split(".").pop()?.toLowerCase() || (composerMode === "photo" ? "jpg" : "mp4");
-      const path = user.id + "/" + crypto.randomUUID() + "." + extension;
-      const { error: uploadError } = await supabase.storage.from("worldconnect-media").upload(path, mediaFile, { contentType: mediaFile.type, upsert: false });
-      if (uploadError) { setNotice("Media upload failed: " + uploadError.message); return; }
-      mediaUrl = supabase.storage.from("worldconnect-media").getPublicUrl(path).data.publicUrl;
+    if (!supabase) { setNotice("Supabase is not configured. Please check the Vercel environment variables."); return; }
+
+    setPublishing(true);
+    setNotice("");
+    let uploadedPath: string | null = null;
+    try {
+      const body = draft.trim() || (composerMode === "photo" ? "Shared a photo." : composerMode === "video" ? "Shared a video." : "");
+      if (body.length > 2000) { setNotice("Your post is too long. Keep it under 2,000 characters."); return; }
+
+      // Repair accounts created before profile provisioning was enabled.
+      const usernameBase = String(user.user_metadata?.username || user.email?.split("@")[0] || "member")
+        .toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20) || "member";
+      const safeUsername = usernameBase + "_" + user.id.replace(/-/g, "").slice(0, 8);
+      const displayName = String(user.user_metadata?.display_name || user.user_metadata?.full_name || usernameBase).slice(0, 80);
+      const { error: profileError } = await supabase.from("wc_profiles").upsert(
+        { id: user.id, username: safeUsername, display_name: displayName },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
+      if (profileError) throw new Error("Your member profile could not be prepared: " + profileError.message);
+
+      let mediaUrl: string | null = null;
+      if (mediaFile) {
+        if (mediaFile.size > 50 * 1024 * 1024) throw new Error("Media must be 50 MB or smaller.");
+        const allowedTypes = composerMode === "photo"
+          ? ["image/jpeg", "image/png", "image/webp", "image/gif"]
+          : ["video/mp4", "video/webm", "video/quicktime"];
+        if (!allowedTypes.includes(mediaFile.type)) {
+          throw new Error(composerMode === "photo"
+            ? "Please choose a JPG, PNG, WEBP or GIF image."
+            : "Please choose an MP4, WEBM or MOV video.");
+        }
+        const extension = mediaFile.name.split(".").pop()?.toLowerCase() || (composerMode === "photo" ? "jpg" : "mp4");
+        uploadedPath = user.id + "/" + crypto.randomUUID() + "." + extension;
+        const { error: uploadError } = await supabase.storage.from("worldconnect-media").upload(uploadedPath, mediaFile, {
+          contentType: mediaFile.type, upsert: false, cacheControl: "3600"
+        });
+        if (uploadError) throw new Error("Media upload failed: " + uploadError.message);
+        mediaUrl = supabase.storage.from("worldconnect-media").getPublicUrl(uploadedPath).data.publicUrl;
+      }
+
+      const { data, error } = await supabase.from("wc_posts").insert({
+        author_id: user.id, body: body || "Shared a moment.",
+        image_url: mediaFile && composerMode === "photo" ? mediaUrl : null,
+        video_url: mediaFile && composerMode === "video" ? mediaUrl : null
+      }).select("id").single();
+      if (error) throw new Error("Post could not be published: " + error.message);
+
+      const { data: profile } = await supabase.from("wc_profiles")
+        .select("username,display_name,avatar_url,country").eq("id", user.id).maybeSingle();
+      const newPost: Post = {
+        id: data.id, authorId: user.id, name: profile?.display_name || profile?.username || displayName || profileName,
+        handle: profile?.username || safeUsername, country: profile?.country || "Around the world",
+        time: "Just now", avatar: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
+        body: body || "Shared a moment.", image: composerMode === "photo" ? mediaUrl || undefined : undefined,
+        video: composerMode === "video" ? mediaUrl || undefined : undefined,
+        likes: 0, comments: 0, tag: composerMode === "discussion" ? "Discussion" : "Community"
+      };
+      setPosts(current => [newPost, ...current]);
+      setDraft("");
+      setMediaFile(null);
+      setMediaPreview("");
+      setShowComposer(false);
+      setNotice("Your post is live.");
+    } catch (error) {
+      if (uploadedPath) {
+        await supabase.storage.from("worldconnect-media").remove([uploadedPath]).catch(() => undefined);
+      }
+      setNotice(error instanceof Error ? error.message : "Post could not be published. Please try again.");
+    } finally {
+      setPublishing(false);
     }
-    const { data, error } = await supabase.from("wc_posts").insert({
-      author_id: user.id, body: body || "Shared a moment.",
-      image_url: mediaFile && composerMode === "photo" ? mediaUrl : null,
-      video_url: mediaFile && composerMode === "video" ? mediaUrl : null
-    }).select("id").single();
-    if (error) { setNotice("Post could not be published: " + error.message); return; }
-    setDraft("");
-    setMediaFile(null);
-    setMediaPreview("");
-    setShowComposer(false);
-    setNotice("Your post is live.");
-    const { data: profile } = await supabase.from("wc_profiles").select("username,display_name,avatar_url,country").eq("id", user.id).maybeSingle();
-    const newPost: Post = {
-      id: data.id, authorId: user.id, name: profile?.display_name || profile?.username || profileName,
-      handle: profile?.username || "member", country: profile?.country || "Around the world",
-      time: "Just now", avatar: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces",
-      body, image: composerMode === "photo" ? mediaUrl || undefined : undefined,
-      video: composerMode === "video" ? mediaUrl || undefined : undefined,
-      likes: 0, comments: 0, tag: composerMode === "discussion" ? "Discussion" : "Community"
-    };
-    setPosts(current => [newPost, ...current]);
   }
   function selectFeedTab(next: string) { if ((next === "Following" || next === "Saved") && !user) { window.location.href = "/login"; return; } setTab(next); }
   const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Jobs",icon:BriefcaseBusiness},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Integrations",icon:Globe2},{label:"Saved",icon:Bookmark}];
@@ -339,8 +379,8 @@ export default function HomePage() {
               <button type="button" onClick={()=>{setComposerMode("discussion");setShowComposer(true);}}><MessageSquareText size={17}/> Discussion</button>
             </div>
           </div>
-          <input ref={photoInputRef} className="file-picker-input" type="file" accept="image/*" aria-label="Choose a photo from your device" onChange={e=>handleMediaChange(e,"photo")}/>
-          <input ref={videoInputRef} className="file-picker-input" type="file" accept="video/*" aria-label="Choose a video from your device" onChange={e=>handleMediaChange(e,"video")}/>
+          <input ref={photoInputRef} className="file-picker-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Choose a photo from your device" onChange={e=>handleMediaChange(e,"photo")}/>
+          <input ref={videoInputRef} className="file-picker-input" type="file" accept="video/mp4,video/webm,video/quicktime" aria-label="Choose a video from your device" onChange={e=>handleMediaChange(e,"video")}/>
           {feedLoading&&<div className="notice" role="status">Loading the latest community posts…</div>}
           {notice&&<div className="notice" role="status"><Check size={16}/>{notice}<button aria-label="Dismiss" onClick={()=>setNotice("")}><X size={15}/></button></div>}
           {showComposer&&<div className="modal-backdrop" onClick={closeComposer}><div className="composer-modal" onClick={e=>e.stopPropagation()}>
@@ -351,7 +391,7 @@ export default function HomePage() {
               <button type="button" className="remove-media" onClick={clearMedia}>Remove attachment</button>
               <span>{mediaFile?.name}</span>
             </div>}
-            <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={!draft.trim()&&!mediaFile} onClick={publish}>Share with the world <Send size={15}/></button></div>
+            <div className="modal-foot"><span>{draft.length}/2000</span><button className="primary-button" disabled={publishing||(!draft.trim()&&!mediaFile)} onClick={publish}>{publishing ? "Publishing..." : "Share with the world"} <Send size={15}/></button></div>
           </div></div>}
           <div className="post-list">{visiblePosts.map(post=><article className="post-card" id={`post-${post.id}`} key={post.id}>
             <div className="post-head"><img className="avatar" src={post.avatar} alt=""/><div className="post-author"><strong>{post.name} {post.verified&&<ShieldCheck className="verified" size={15}/>}</strong><span>@{post.handle} · {post.country}</span></div><span className="post-time">{post.time}</span><button className="icon-button more-button" aria-label="More post options" onClick={()=>{if(!user){window.location.href="/login";return;} if(post.authorId===user.id || post.name==="You" || post.handle===user.user_metadata?.username){if(window.confirm("Delete this post?")){const supabase=createClient();if(supabase&&!post.id.startsWith("demo-"))supabase.from("wc_posts").delete().eq("id",post.id).then(({error})=>{if(error)setNotice(error.message);else setPosts(current=>current.filter(p=>p.id!==post.id));});}}else if(!post.id.startsWith("demo-")){const reason=window.prompt("Why are you reporting this post?");if(reason?.trim()){const supabase=createClient();if(supabase)supabase.from("wc_reports").insert({reporter_id:user.id,post_id:post.id,reason:reason.trim()}).then(({error})=>setNotice(error?"Report could not be submitted: "+error.message:"Thank you. Your report was submitted for review."));}}else setNotice("Sample posts cannot be reported.");}}><MoreHorizontal size={20}/></button></div>
