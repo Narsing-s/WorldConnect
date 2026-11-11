@@ -17,11 +17,7 @@ type FeedRow = {id:string;author_id:string;body:string;image_url:string|null;vid
 type Comment = { id: string; body: string; author_id: string; created_at: string; author?: { display_name: string; username: string } | null };
 type Post = { id: string; authorId?: string; name: string; handle: string; country: string; time: string; avatar: string; body: string; image?: string; video?: string; likes: number; comments: number; tag: string; verified?: boolean; liked?: boolean };
 
-const initialPosts: Post[] = [
-  { id: "demo-1", name: "Amara Okafor", handle: "amara.explores", country: "Lagos, Nigeria", time: "12 min ago", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces", body: "A reminder from Lagos today: the best ideas happen when we make room for different perspectives. What is one thing your city has taught you about community? 🌍", image: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=85", likes: 248, comments: 36, tag: "Community", verified: true },
-  { id: "demo-2", name: "Daniel Kim", handle: "danielbuilds", country: "Seoul, South Korea", time: "38 min ago", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=faces", body: "Just opened my first open-source project to contributors worldwide. Looking for designers, developers and curious beginners. Let's build something useful together. 💡", likes: 132, comments: 19, tag: "Technology" },
-  { id: "demo-3", name: "Sofia Laurent", handle: "sofia.learns", country: "Lyon, France", time: "1 hr ago", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=faces", body: "This week I'm hosting a free language exchange: French, English, Telugu and Spanish learners welcome. Learning feels easier when we learn together. ✨", likes: 96, comments: 12, tag: "Learning" },
-];
+const initialPosts: Post[] = [];
 
 const trends = [{tag:"ClimateAction"},{tag:"BuildInPublic"},{tag:"LearnTogether"},{tag:"WorldCulture"}];
 type Person = {id:string;name:string;role:string;avatar:string};
@@ -308,7 +304,7 @@ export default function HomePage() {
     setPosts(current => [newPost, ...current]);
   }
   function selectFeedTab(next: string) { if ((next === "Following" || next === "Saved") && !user) { window.location.href = "/login"; return; } setTab(next); }
-  const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Saved",icon:Bookmark}];
+  const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Jobs",icon:BriefcaseBusiness},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Integrations",icon:Globe2},{label:"Saved",icon:Bookmark}];
 
   return (
     <main className="app-shell">
@@ -320,7 +316,7 @@ export default function HomePage() {
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
           <div className="sidebar-label">MENU</div>
-          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="Popular"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("Popular");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
+          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="Popular"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("Popular");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":label==="Jobs"?"/jobs":label==="Integrations"?"/integrations":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
           <div className="sidebar-divider"/>
           <div className="sidebar-label">YOUR SPACES</div>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Learning%20Circle";}}><span className="space-dot purple">✦</span>Learning Circle</button>
