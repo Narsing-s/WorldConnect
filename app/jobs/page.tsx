@@ -15,14 +15,13 @@ export default function JobsPage() {
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
 
-  const searchJobs = useCallback(async (event?: FormEvent) => {
-    event?.preventDefault();
+  const loadJobs = useCallback(async (searchTerm: string, searchLocation: string) => {
     setLoading(true);
     setNotice("");
     try {
       const params = new URLSearchParams();
-      if (query.trim()) params.set("q", query.trim());
-      if (location.trim()) params.set("location", location.trim());
+      if (searchTerm.trim()) params.set("q", searchTerm.trim());
+      if (searchLocation.trim()) params.set("location", searchLocation.trim());
       const response = await fetch(`/api/jobs?${params.toString()}`);
       if (!response.ok) throw new Error("Job providers could not be reached. Please try again.");
       const data = await response.json() as SearchResponse;
@@ -34,9 +33,14 @@ export default function JobsPage() {
       setJobs([]);
       setNotice(error instanceof Error ? error.message : "Could not load jobs.");
     } finally { setLoading(false); }
-  }, [query, location]);
+  }, []);
 
-  useEffect(() => { void searchJobs(); }, [searchJobs]);
+  useEffect(() => { void loadJobs("", ""); }, [loadJobs]);
+
+  function searchJobs(event?: FormEvent) {
+    event?.preventDefault();
+    void loadJobs(query, location);
+  }
 
   return (
     <main className="feature-page">
@@ -47,7 +51,7 @@ export default function JobsPage() {
         <label>Location<input value={location} onChange={event=>setLocation(event.target.value)} placeholder="e.g. India, Hyderabad, Remote"/></label>
         <button className="feature-primary" disabled={loading}><Search size={16}/> Search jobs</button>
       </form>
-      <div className="feature-toolbar"><strong>{jobs.length} matching jobs</strong><button className="feature-secondary" onClick={()=>void searchJobs()} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
+      <div className="feature-toolbar"><strong>{jobs.length} matching jobs</strong><button className="feature-secondary" onClick={()=>searchJobs()} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
       {notice && <p className="feature-notice" role="status">{notice}</p>}
       {loading && <p className="feature-notice">Searching connected job boards…</p>}
       <section className="opportunity-list">
