@@ -101,7 +101,7 @@ export default function LoginPage() {
           <label>Password<div className="auth-input"><Lock size={17}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required/></div></label>
           {error && <div className="auth-alert error" role="alert">{error}</div>}
           {message && <div className="auth-alert success" role="status">{message}</div>}
-          {mode === "signup" && message.startsWith("Account created.") && <button className="auth-resend" type="button" onClick={resendConfirmation} disabled={resending}>{resending ? "Sending..." : "Resend confirmation email"}</button>}
+          {mode === "signup" && <button className="auth-resend" type="button" onClick={resendConfirmation} disabled={resending}>{resending ? "Sending..." : "Resend confirmation email"}</button>}
           <button className="auth-submit" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="auth-spin" size={17}/> Please wait...</> : mode === "login" ? "Sign in to WorldConnect" : "Create my account"}</button>
         </form>
         <p className="auth-legal">By continuing, you agree to help keep WorldConnect respectful, safe and welcoming.</p>
