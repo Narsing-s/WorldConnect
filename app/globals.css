@@ -95,3 +95,22 @@
 .explore-post-card img { display:block; width:100%; max-height:360px; object-fit:contain; border-radius:12px; background:#0f172a; }
 .explore-post-card a { display:inline-flex; margin-top:12px; color:var(--accent, #2563eb); text-decoration:none; font-weight:600; }
 .explore-video-label { display:inline-flex; padding:6px 10px; border-radius:8px; background:var(--muted-bg, #f1f5f9); font-size:12px; }
+
+
+/* Job search and social integration pages */
+.jobs-search-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.jobs-search-form > button { min-height: 46px; }
+.opportunity-footer > span { display: inline-flex; align-items: center; gap: 6px; }
+.job-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.job-tags span { border: 1px solid var(--border, #e5e7eb); border-radius: 999px; padding: 4px 9px; font-size: 12px; color: var(--muted, #64748b); }
+.integration-intro { margin: 18px 0; padding: 18px; border: 1px solid var(--border, #e5e7eb); border-radius: 16px; background: var(--surface, #fff); }
+.integration-intro p { margin: 7px 0 0; color: var(--muted, #64748b); line-height: 1.6; }
+.integration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 18px 0 26px; }
+.integration-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.integration-card p { color: var(--muted, #64748b); line-height: 1.55; flex: 1; }
+.integration-card .feature-primary { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.integration-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: var(--surface-soft, #f1f5f9); }
+.integration-copy { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 640px) {
+  .jobs-search-form, .integration-grid { grid-template-columns: 1fr; }
+}
