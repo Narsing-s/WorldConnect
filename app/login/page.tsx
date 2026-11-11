@@ -16,6 +16,34 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  async function resendConfirmation() {
+    setError(""); setMessage("");
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Backend is not connected. Please try again after the Supabase settings are configured.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Enter the email address you used to create your account.");
+      return;
+    }
+    setResending(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (resendError) throw resendError;
+      setMessage("A new confirmation email has been requested. Check your inbox and Spam/Junk folder.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not resend the confirmation email. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +101,7 @@ export default function LoginPage() {
           <label>Password<div className="auth-input"><Lock size={17}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required/></div></label>
           {error && <div className="auth-alert error" role="alert">{error}</div>}
           {message && <div className="auth-alert success" role="status">{message}</div>}
+          {mode === "signup" && message.startsWith("Account created.") && <button className="auth-resend" type="button" onClick={resendConfirmation} disabled={resending}>{resending ? "Sending..." : "Resend confirmation email"}</button>}
           <button className="auth-submit" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="auth-spin" size={17}/> Please wait...</> : mode === "login" ? "Sign in to WorldConnect" : "Create my account"}</button>
         </form>
         <p className="auth-legal">By continuing, you agree to help keep WorldConnect respectful, safe and welcoming.</p>
