@@ -8,6 +8,9 @@ grant select on public.wc_profiles, public.wc_posts to anon, authenticated;
 grant insert, update, delete on public.wc_posts to authenticated;
 grant insert, update on public.wc_profiles to authenticated;
 
+alter table public.wc_posts add column if not exists video_url text;
+alter table public.wc_posts add column if not exists updated_at timestamptz not null default now();
+
 alter table public.wc_profiles enable row level security;
 alter table public.wc_posts enable row level security;
 
