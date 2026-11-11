@@ -7,15 +7,18 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 ## Features
 
 - Email/password registration, sign-in and sign-out
-- Member profile editor (display name, username, bio, country and profile photo upload from device or avatar URL)
-- Community feed with persistent text, photo and video posts
-- Device photo/video picker with upload to Supabase Storage; profile photo picker and preview
+- Member profile editor and profile photo upload
+- Community feed with persistent member-created text, photo and video posts
+- No seeded/demo feed posts; an empty feed is shown until real members publish
 - Persistent appreciations (likes), comments, follows and saved posts
 - Community discovery, community creation and join/leave actions
 - Private member-to-member conversations
-- Opportunity board for jobs, collaborations, volunteering, events and learning
+- Community opportunity board for jobs, collaborations, volunteering, events and learning
+- Live external job search from Remotive and Arbeitnow through a server-side API route
+- Search jobs by role, skills and location; apply on the original job provider website
+- Share WorldConnect through LinkedIn, WhatsApp, Telegram, email and the device share sheet
 - In-app notifications for likes, comments, follows and messages
-- Share posts with the device share sheet, with clipboard fallback and direct links that scroll to the shared post
+- Share posts with the device share sheet, with clipboard fallback and direct links
 - Post owner delete and member report actions
 - Responsive desktop and mobile navigation
 
@@ -27,36 +30,27 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 4. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 5. Run `npm run dev` and open http://localhost:3000.
 
-## Supabase setup (required)
-
-The application requires a Supabase project for accounts and durable social features.
+## Supabase setup (required for community features)
 
 1. Open the Supabase SQL Editor for the project.
-2. Run the complete `supabase/schema.sql` script from this repository. It creates the WorldConnect-prefixed tables, indexes, RLS policies, profile signup trigger, private conversation helper/RPC, notification triggers, opportunity board and media bucket.
-3. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for:
-   - `http://localhost:3000/auth/callback`
-   - `https://YOUR-DEPLOYED-DOMAIN/auth/callback`
+2. Run the complete `supabase/schema.sql` script from this repository.
+3. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for localhost and your deployed `/auth/callback` URL.
 4. Enable email/password authentication and configure the email provider/confirmation settings you want.
 5. Set the two public Supabase environment variables in Vercel and redeploy.
 
-Only the Supabase publishable/anon key belongs in browser environment variables. Never expose a service-role key in this repository or client code.
+The optional `supabase/remove-demo-content-and-integrations.sql` is an audit-only script. It does not delete member content.
 
-## Important behavior
+## Jobs and social sharing
 
-- Without Supabase environment variables, the home page can display its sample feed, but account-backed actions are unavailable.
-- Sample feed entries are demonstration content and are read-only. Posts created by signed-in members are stored in Supabase.
-- Photo/video uploads use the `worldconnect-media` Storage bucket created by the SQL setup. The current upload limit is 50 MB per file.
-- Messages, communities, saved posts, notifications and opportunities require the SQL setup to have been applied successfully.
-- WorldConnect uses a separate `wc_` namespace for its database objects so it does not overwrite unrelated application tables.
+- `/jobs` fetches live job listings from Remotive and Arbeitnow server-side. Search results link to the original provider for applications. Availability and relevance depend on each provider's current feed and terms.
+- `/integrations` provides user-initiated sharing through official LinkedIn, WhatsApp, Telegram and email share flows.
+- Direct LinkedIn feed access/automatic publishing, WhatsApp Business API messaging and Telegram bot notifications require separate app registration, approval and credentials. No account is falsely marked as connected.
+- No third-party API secret is required for the public job feeds. If providers are unavailable, the page reports that instead of displaying fabricated listings.
 
 ## Deploy
 
-Import this repository into Vercel, configure the two `NEXT_PUBLIC_SUPABASE_*` environment variables, and deploy the `main` branch.
-
-## CI
-
-GitHub Actions runs the Next.js production build for pushes and pull requests targeting `main`.
+Import this repository into Vercel, configure the Supabase public environment variables, and deploy the `main` branch.
 
 ## Security
 
-Row-level security is enabled on WorldConnect data tables. Keep the Supabase service-role key private and review database policies before opening the platform to a large public audience.
+Row-level security is enabled on WorldConnect data tables. Keep the Supabase service-role key private and never expose secrets in `NEXT_PUBLIC_*` variables.
