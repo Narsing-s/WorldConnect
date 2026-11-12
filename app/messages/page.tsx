@@ -100,13 +100,15 @@ export default function MessagesPage(){
     if(error){setNotice("Could not load chat history: "+error.message);break;}
     const page=(data||[]) as Message[];
     collected.push(...page);
+    if(active){
+     setMessages(current=>{
+      const unique=new Map<string,Message>();
+      for(const message of [...current,...page])unique.set(message.id,message);
+      return Array.from(unique.values()).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id));
+     });
+    }
     if(page.length<pageSize)break;
     cursor=page[page.length-1];
-   }
-   if(active){
-    const unique=new Map<string,Message>();
-    for(const message of collected)unique.set(message.id,message);
-    setMessages(Array.from(unique.values()).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id)));
    }
    if(active)setLoadingHistory(false);
   };
