@@ -72,16 +72,22 @@ export default function MessagesPage(){
   if(!term){setResults([]);setNotice("Enter a member name or username to search.");return;}
   const supabase=createClient();if(!supabase)return;
   setSearching(true);setNotice("");
-  const safe=term.replace(/[%_]/g,"");
-  const {data,error}=await supabase.from("wc_profiles")
-   .select("id,display_name,username,avatar_url")
-   .neq("id",userId)
-   .or(`username.ilike.%${safe}%,display_name.ilike.%${safe}%`)
-   .order("display_name",{ascending:true}).limit(20);
+  // Query each indexed profile field separately so user input never becomes
+  // part of a PostgREST .or() expression.
+  const safe=term.replace(/[%_]/g,"").trim();
+  if(!safe){setSearching(false);setResults([]);setNotice("Enter a valid member name or username.");return;}
+  const [usernameResult,nameResult]=await Promise.all([
+   supabase.from("wc_profiles").select("id,display_name,username,avatar_url").neq("id",userId).ilike("username",`%${safe}%`).order("username",{ascending:true}).limit(20),
+   supabase.from("wc_profiles").select("id,display_name,username,avatar_url").neq("id",userId).ilike("display_name",`%${safe}%`).order("display_name",{ascending:true}).limit(20)
+  ]);
   setSearching(false);
+  const error=usernameResult.error||nameResult.error;
   if(error){setResults([]);setNotice("Member search failed: "+error.message);return;}
-  setResults((data||[]) as ProfileSummary[]);
-  if(!(data||[]).length)setNotice("No registered member matched that name. Try their username.");
+  const unique=new Map<string,ProfileSummary>();
+  for(const person of [...(usernameResult.data||[]),...(nameResult.data||[])])unique.set(person.id,person as ProfileSummary);
+  const data=Array.from(unique.values()).sort((a,b)=>(a.display_name||a.username||"").localeCompare(b.display_name||b.username||"")).slice(0,20);
+  setResults(data);
+  if(!data.length)setNotice("No registered member matched that name. Try their username.");
  }
 
  async function start(person:ProfileSummary){
