@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, MessageCircle, Send, Search, LoaderCircle, UserRound, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
-type Thread={id:string;userId:string;label:string;username:string;last:string;lastAt:string;messageCount:number};
+type Thread={id:string;userId:string;label:string;username:string;last:string;lastAt:string;unreadCount:number};
 type ProfileSummary={id:string;display_name:string|null;username:string|null;avatar_url?:string|null};
 type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string;attachment_url?:string|null;attachment_name?:string|null;attachment_type?:string|null};
 
@@ -31,7 +31,7 @@ export default function MessagesPage(){
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){window.location.href="/login";return;}
   setUserId(user.id);
-  const {data:mine,error}=await supabase.from("wc_conversation_members").select("conversation_id").eq("user_id",user.id);
+  const {data:mine,error}=await supabase.from("wc_conversation_members").select("conversation_id,last_read_at").eq("user_id",user.id);
   if(error){setNotice(error.message);return;}
   const ids=(mine||[]).map(x=>x.conversation_id);
   if(!ids.length){
@@ -42,17 +42,26 @@ export default function MessagesPage(){
    return;
   }
   const [{data:members},{data:allMessages}]=await Promise.all([
-   supabase.from("wc_conversation_members").select("conversation_id,user_id").in("conversation_id",ids),
+   supabase.from("wc_conversation_members").select("conversation_id,user_id,last_read_at").in("conversation_id",ids),
    supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id",ids).order("created_at",{ascending:false})
   ]);
   const otherIds=Array.from(new Set((members||[]).filter(x=>x.user_id!==user.id).map(x=>x.user_id)));
   const profileResult=otherIds.length?await supabase.from("wc_profiles").select("id,display_name,username").in("id",otherIds):{data:[] as ProfileSummary[]};
   const profiles=(profileResult.data||[]) as ProfileSummary[];
+  const unreadCounts=await Promise.all(ids.map(async id=>{
+   const ownMember=(mine||[]).find(x=>x.conversation_id===id);
+   let request=supabase.from("wc_messages").select("id",{count:"exact",head:true})
+    .eq("conversation_id",id).neq("sender_id",user.id);
+   if(ownMember?.last_read_at)request=request.gt("created_at",ownMember.last_read_at);
+   const result=await request;
+   return [id,result.count||0] as const;
+  }));
+  const unreadByConversation=new Map(unreadCounts);
   const next=ids.map(id=>{
    const other=(members||[]).find(x=>x.conversation_id===id&&x.user_id!==user.id);
    const profile=profiles.find(x=>x.id===other?.user_id);
    const last=(allMessages||[]).find(x=>x.conversation_id===id);
-   return{id,userId:other?.user_id||"",label:profile?.display_name||profile?.username||"WorldConnect member",username:profile?.username||"",last:last?.body||"Start the conversation",lastAt:last?.created_at||"1970-01-01T00:00:00.000Z",messageCount:(allMessages||[]).filter(x=>x.conversation_id===id).length};
+   return{id,userId:other?.user_id||"",label:profile?.display_name||profile?.username||"WorldConnect member",username:profile?.username||"",last:last?.body||"Start the conversation",lastAt:last?.created_at||"1970-01-01T00:00:00.000Z",unreadCount:unreadByConversation.get(id)||0};
   }).sort((a,b)=>Date.parse(b.lastAt)-Date.parse(a.lastAt));
   setThreads(next);
   setNotice("");
@@ -73,6 +82,38 @@ export default function MessagesPage(){
   });
   return()=>{void supabase.removeChannel(channel);};
  },[userId]);
+
+ async function markConversationRead(conversationId:string){
+  if(!userId||!conversationId)return;
+  const supabase=createClient();if(!supabase)return;
+  const readAt=new Date().toISOString();
+  const {error}=await supabase.from("wc_conversation_members")
+   .update({last_read_at:readAt})
+   .eq("conversation_id",conversationId).eq("user_id",userId);
+  if(!error)setThreads(current=>current.map(thread=>thread.id===conversationId?{...thread,unreadCount:0}:thread));
+ }
+
+ useEffect(()=>{
+  if(!selected||!userId)return;
+  void markConversationRead(selected);
+ },[selected,userId]);
+
+ useEffect(()=>{
+  if(!userId)return;
+  const supabase=createClient();if(!supabase)return;
+  const channel=supabase.channel("wc-inbox-unread-"+userId)
+   .on("postgres_changes",{event:"INSERT",schema:"public",table:"wc_messages"},payload=>{
+    const incoming=payload.new as Message;
+    if(incoming.sender_id===userId)return;
+    if(incoming.conversation_id===selected){
+     void markConversationRead(incoming.conversation_id);
+    }else{
+     setThreads(current=>current.map(thread=>thread.id===incoming.conversation_id
+      ?{...thread,last:incoming.body,lastAt:incoming.created_at,unreadCount:thread.unreadCount+1}:thread));
+    }
+   }).subscribe();
+  return()=>{void supabase.removeChannel(channel);};
+ },[userId,selected]);
 
  useEffect(()=>{
   if(!selected||!userId)return;
@@ -174,7 +215,7 @@ export default function MessagesPage(){
   setDraft("");
   setNotice("");
   setThreads(current=>current.map(thread=>thread.id===selected
-    ?{...thread,last:body,lastAt:optimistic.created_at,messageCount:thread.messageCount+1}
+    ?{...thread,last:body,lastAt:optimistic.created_at}
     :thread));
   const {data,error}=await supabase.from("wc_messages")
     .insert({conversation_id:selected,sender_id:userId,body})
@@ -183,16 +224,13 @@ export default function MessagesPage(){
   if(error){
    setMessages(current=>current.filter(message=>message.id!==temporaryId));
    setDraft(body);
-   setThreads(current=>current.map(thread=>thread.id===selected
-    ?{...thread,messageCount:Math.max(0,thread.messageCount-1)}
-    :thread));
    setNotice(error.message);
    return;
   }
   setMessages(current=>current.map(message=>message.id===temporaryId?data as Message:message));
  }
  const active=threads.find(x=>x.id===selected);
- const totalMessages=threads.reduce((sum,thread)=>sum+thread.messageCount,0);
+ const totalUnread=threads.reduce((sum,thread)=>sum+thread.unreadCount,0);
  const isOnline=(id:string)=>onlineIds.includes(id);
 
  async function attachFile(event:React.ChangeEvent<HTMLInputElement>){
@@ -227,11 +265,11 @@ export default function MessagesPage(){
   URL.revokeObjectURL(previewUrl);
   setMessages(current=>current.map(message=>message.id===temporaryId?data as Message:message));
   setDraft("");
-  setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:data.created_at,messageCount:thread.messageCount+1}:thread));
+  setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:data.created_at}:thread));
  }
  return <main className="feature-page">
   <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
-  <header className="feature-heading"><span><MessageCircle size={22}/></span><div><h1>Messages <span className="message-total-count">{totalMessages}</span></h1><p>Find registered members and start private conversations.</p></div></header>
+  <header className="feature-heading"><span><MessageCircle size={22}/></span><div><h1>Messages <span className="message-total-count">{totalUnread}</span></h1><p>Find registered members and start private conversations.</p></div></header>
   <form className="message-start" onSubmit={searchMembers}>
    <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by name or @username…" aria-label="Search registered members" required/>
    <button className="feature-primary" disabled={searching}>{searching?<LoaderCircle className="auth-spin"/>:<Search size={15}/>} Search</button>
@@ -246,8 +284,8 @@ export default function MessagesPage(){
   </section>}
   {notice&&<p className="feature-notice" role="status">{notice}</p>}
   <section className="messages-layout">
-   <aside className="thread-list">{threads.map(thread=><button key={thread.id} className={selected===thread.id?"thread-active":""} onClick={()=>setSelected(thread.id)}><strong><i className={isOnline(thread.userId)?"presence-dot is-online":"presence-dot"} aria-label={isOnline(thread.userId)?"Online":"Offline"}/>{thread.label}<em className="thread-count">{thread.messageCount}</em></strong><small>@{thread.username} · {isOnline(thread.userId)?"Online":"Offline"}</small><span>{thread.last}</span></button>)}</aside>
-   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.messageCount} messages</small></header><div className="chat-messages">{loadingHistory&&<p className="chat-history-loading">Loading complete chat history…</p>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
+   <aside className="thread-list">{threads.map(thread=><button key={thread.id} className={selected===thread.id?"thread-active":""} onClick={()=>setSelected(thread.id)}><strong><i className={isOnline(thread.userId)?"presence-dot is-online":"presence-dot"} aria-label={isOnline(thread.userId)?"Online":"Offline"}/>{thread.label}{thread.unreadCount>0&&<em className="thread-count" aria-label={`${thread.unreadCount} unread messages`}>{thread.unreadCount}</em>}</strong><small>@{thread.username} · {isOnline(thread.userId)?"Online":"Offline"}</small><span>{thread.last}</span></button>)}</aside>
+   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.unreadCount} unread</small></header><div className="chat-messages">{loadingHistory&&<p className="chat-history-loading">Loading complete chat history…</p>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
   </section>
  </main>;
 }
