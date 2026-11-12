@@ -85,7 +85,12 @@ export default function ProfilePage() {
       <div className="profile-page-brand"><Globe2 size={24}/> world<span>connect</span></div>
       <h1>Your profile</h1>
       <p>Choose how people around the world see you.</p>
-      {loading ? <div className="profile-loading"><LoaderCircle className="auth-spin"/> Loading profile…</div> : <>\n      <div className="profile-social-stats" aria-label="Your social connections">\n        <div><strong>{followerCount.toLocaleString()}</strong><span>Followers</span></div>\n        <div><strong>{followingCount.toLocaleString()}</strong><span>Following</span></div>\n      </div>\n      <form onSubmit={save} className="profile-form">
+      {loading ? <div className="profile-loading"><LoaderCircle className="auth-spin"/> Loading profile…</div> : <>
+      <div className="profile-social-stats" aria-label="Your social connections">
+        <div><strong>{followerCount.toLocaleString()}</strong><span>Followers</span></div>
+        <div><strong>{followingCount.toLocaleString()}</strong><span>Following</span></div>
+      </div>
+      <form onSubmit={save} className="profile-form">
         <label>Username<input value={profile.username} readOnly /></label>
         <label>Display name<input value={profile.display_name} maxLength={60} required onChange={e=>setProfile(p=>({...p,display_name:e.target.value}))}/></label>
         <label>Country or city<input value={profile.country || ""} maxLength={80} placeholder="e.g. Hyderabad, India" onChange={e=>setProfile(p=>({...p,country:e.target.value}))}/></label>
@@ -95,7 +100,7 @@ export default function ProfilePage() {
         {error&&<div className="auth-alert error" role="alert">{error}</div>}
         {message&&<div className="auth-alert success" role="status">{message}</div>}
         <button className="auth-submit" disabled={saving}>{saving?<LoaderCircle className="auth-spin"/>:<Save size={17}/>} Save profile</button>
-      </form>}
+      </form></>}
       <button className="profile-logout" onClick={signOut}><LogOut size={16}/> Sign out</button>
     </section>
   </main>;
