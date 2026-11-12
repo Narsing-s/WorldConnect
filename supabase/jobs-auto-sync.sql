@@ -23,4 +23,13 @@ create or replace function public.wc_jobs_touch_updated_at() returns trigger lan
 begin new.updated_at=now();return new;end;$$;
 drop trigger if exists wc_jobs_updated_at on public.wc_jobs;
 create trigger wc_jobs_updated_at before update on public.wc_jobs for each row execute function public.wc_jobs_touch_updated_at();
+
+-- Explicit grants: the API route uses SUPABASE_SERVICE_ROLE_KEY for server-side writes.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.wc_jobs to anon, authenticated;
+grant select on public.wc_job_sync_runs to anon, authenticated;
+grant all privileges on public.wc_jobs to service_role;
+grant all privileges on public.wc_job_sync_runs to service_role;
+revoke insert, update, delete, truncate, references, trigger on public.wc_jobs from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.wc_job_sync_runs from anon, authenticated;
 -- Import/update permissions are restricted to server-side service-role access. Never expose the service-role key to browsers.
