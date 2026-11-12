@@ -14,8 +14,7 @@ export default function MessagesPage(){
  const [threads,setThreads]=useState<Thread[]>([]);
  const [selected,setSelected]=useState("");
  const [messages,setMessages]=useState<Message[]>([]);
- const [hasOlderMessages,setHasOlderMessages]=useState(false);
- const [loadingOlder,setLoadingOlder]=useState(false);
+ const [loadingHistory,setLoadingHistory]=useState(false);
  const [query,setQuery]=useState("");
  const [results,setResults]=useState<ProfileSummary[]>([]);
  const [searching,setSearching]=useState(false);
@@ -80,41 +79,47 @@ export default function MessagesPage(){
   const supabase=createClient();if(!supabase)return;
   let active=true;
   setMessages([]);
-  setHasOlderMessages(false);
-  supabase.from("wc_messages")
-   .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
-   .eq("conversation_id",selected)
-   .order("created_at",{ascending:false})
-   .limit(50)
-   .then(({data,error})=>{
-    if(!active)return;
-    if(error)setNotice(error.message);
-    else{
-     const page=(data||[]) as Message[];
-     setMessages(page.reverse());
-     setHasOlderMessages(page.length===50);
+  setLoadingHistory(true);
+  setNotice("");
+  const fetchCompleteHistory=async()=>{
+   const collected:Message[]=[];
+   let cursor:Message|undefined;
+   const pageSize=500;
+   while(active){
+    let request=supabase.from("wc_messages")
+     .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+     .eq("conversation_id",selected)
+     .order("created_at",{ascending:false})
+     .order("id",{ascending:false})
+     .limit(pageSize);
+    if(cursor){
+     request=request.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
     }
-   });
-  return()=>{active=false;};
+    const {data,error}=await request;
+    if(!active)return;
+    if(error){setNotice("Could not load chat history: "+error.message);break;}
+    const page=(data||[]) as Message[];
+    collected.push(...page);
+    if(page.length<pageSize)break;
+    cursor=page[page.length-1];
+   }
+   if(active){
+    const unique=new Map<string,Message>();
+    for(const message of collected)unique.set(message.id,message);
+    setMessages(Array.from(unique.values()).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id)));
+   }
+   if(active)setLoadingHistory(false);
+  };
+  void fetchCompleteHistory();
+  const channel=supabase.channel("wc-chat-"+selected)
+   .on("postgres_changes",{event:"INSERT",schema:"public",table:"wc_messages",filter:`conversation_id=eq.${selected}`},payload=>{
+    const incoming=payload.new as Message;
+    if(incoming.sender_id===userId)return;
+    setMessages(current=>current.some(message=>message.id===incoming.id)?current:[...current,incoming].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id)));
+   })
+   .subscribe();
+  return()=>{active=false;void supabase.removeChannel(channel);};
  },[selected,userId]);
-
- async function loadOlderMessages(){
-  if(!selected||loadingOlder||!hasOlderMessages||!messages.length)return;
-  const supabase=createClient();if(!supabase)return;
-  setLoadingOlder(true);
-  const oldest=messages[0];
-  const {data,error}=await supabase.from("wc_messages")
-   .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
-   .eq("conversation_id",selected)
-   .lt("created_at",oldest.created_at)
-   .order("created_at",{ascending:false})
-   .limit(50);
-  setLoadingOlder(false);
-  if(error){setNotice("Could not load older messages: "+error.message);return;}
-  const page=(data||[]) as Message[];
-  setMessages(current=>[...page.reverse(),...current]);
-  setHasOlderMessages(page.length===50);
- }
 
  async function searchMembers(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
@@ -193,18 +198,34 @@ export default function MessagesPage(){
   if(!file.type.startsWith("image/")&&!file.type.startsWith("video/")){setNotice("Please attach an image or video.");return;}
   if(file.size>50*1024*1024){setNotice("Attachment must be 50 MB or smaller.");return;}
   const supabase=createClient();if(!supabase)return;
+  const conversationAtSend=selected;
+  const body=draft.trim()||file.name;
+  const temporaryId=`pending-file-${crypto.randomUUID()}`;
+  const previewUrl=URL.createObjectURL(file);
+  const optimistic:Message={id:temporaryId,conversation_id:conversationAtSend,sender_id:userId,body,created_at:new Date().toISOString(),attachment_url:previewUrl,attachment_name:file.name,attachment_type:file.type};
+  setMessages(current=>[...current,optimistic]);
   setUploading(true);setNotice("");
   const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"attachment";
   const path=`${userId}/messages/${Date.now()}-${safeName}`;
   const {error:uploadError}=await supabase.storage.from("worldconnect-media").upload(path,file,{contentType:file.type,upsert:false});
-  if(uploadError){setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;}
+  if(uploadError){
+   URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
+   setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;
+  }
   const {data:publicData}=supabase.storage.from("worldconnect-media").getPublicUrl(path);
-  const {error:messageError}=await supabase.from("wc_messages").insert({conversation_id:selected,sender_id:userId,body:draft.trim()||file.name,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type});
+  const {data,error:messageError}=await supabase.from("wc_messages")
+   .insert({conversation_id:conversationAtSend,sender_id:userId,body,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type})
+   .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+   .single();
   setUploading(false);
-  if(messageError){setNotice("File uploaded, but the message could not be saved: "+messageError.message);return;}
+  if(messageError||!data){
+   URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
+   setNotice("File uploaded, but the message could not be saved: "+(messageError?.message||"No message record was returned"));return;
+  }
+  URL.revokeObjectURL(previewUrl);
+  setMessages(current=>current.map(message=>message.id===temporaryId?data as Message:message));
   setDraft("");
-  const {data}=await supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type").eq("conversation_id",selected).order("created_at",{ascending:true});
-  setMessages((data||[]) as Message[]);await load();
+  setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:data.created_at,messageCount:thread.messageCount+1}:thread));
  }
  return <main className="feature-page">
   <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
@@ -224,7 +245,7 @@ export default function MessagesPage(){
   {notice&&<p className="feature-notice" role="status">{notice}</p>}
   <section className="messages-layout">
    <aside className="thread-list">{threads.map(thread=><button key={thread.id} className={selected===thread.id?"thread-active":""} onClick={()=>setSelected(thread.id)}><strong><i className={isOnline(thread.userId)?"presence-dot is-online":"presence-dot"} aria-label={isOnline(thread.userId)?"Online":"Offline"}/>{thread.label}<em className="thread-count">{thread.messageCount}</em></strong><small>@{thread.username} · {isOnline(thread.userId)?"Online":"Offline"}</small><span>{thread.last}</span></button>)}</aside>
-   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.messageCount} messages</small></header><div className="chat-messages">{hasOlderMessages&&<button type="button" className="feature-secondary" onClick={()=>void loadOlderMessages()} disabled={loadingOlder}>{loadingOlder?<LoaderCircle className="auth-spin"/>:"Load older messages"}</button>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
+   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.messageCount} messages</small></header><div className="chat-messages">{loadingHistory&&<p className="chat-history-loading">Loading complete chat history…</p>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
   </section>
  </main>;
 }
