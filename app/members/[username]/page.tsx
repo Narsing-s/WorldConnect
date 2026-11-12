@@ -69,20 +69,11 @@ export default function MemberProfilePage(){
   if(!profile||profile.id===userId)return;
   const supabase=createClient();if(!supabase)return;
   setBusy(true);
-  const {data:mine,error}=await supabase.from("wc_conversation_members").select("conversation_id").eq("user_id",userId);
-  if(error){setBusy(false);setNotice(error.message);return;}
-  const ids=(mine||[]).map(row=>row.conversation_id);
-  let conversationId:string|undefined;
-  if(ids.length){
-   const {data:members}=await supabase.from("wc_conversation_members").select("conversation_id,user_id").in("conversation_id",ids);
-   conversationId=(members||[]).find(row=>row.user_id===profile.id)?.conversation_id;
-  }
-  if(!conversationId){
-   const {data,error:startError}=await supabase.rpc("wc_start_conversation",{target_user:profile.id});
-   if(startError){setBusy(false);setNotice(startError.message);return;}
-   conversationId=data as string;
-  }
-  setBusy(false);router.push(`/messages?conversation=${conversationId}`);
+  const {data:conversationId,error}=await supabase.rpc("wc_start_conversation",{target_user:profile.id});
+  setBusy(false);
+  if(error){setNotice("Could not start conversation: "+error.message);return;}
+  if(typeof conversationId!=="string"||!conversationId){setNotice("Could not open a conversation. Please try again.");return;}
+  router.push(`/messages?conversation=${conversationId}`);
  }
 
  if(loading)return <main className="feature-page"><Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link><p className="feature-notice"><LoaderCircle className="auth-spin"/> Loading member profile…</p></main>;
