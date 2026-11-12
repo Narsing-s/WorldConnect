@@ -49,7 +49,11 @@ The optional `supabase/remove-demo-content-and-integrations.sql` is an audit-onl
 - Job-board directory links open the providers' own websites. Only the four public feeds are aggregated automatically; other providers do not expose a supported public feed here and are not scraped. Listings and availability depend on provider feeds and terms.
 - `/integrations` provides user-initiated sharing through official LinkedIn, WhatsApp, Telegram and email share flows.
 - Direct LinkedIn feed access/automatic publishing, WhatsApp Business API messaging and Telegram bot notifications require separate app registration, approval and credentials. No account is falsely marked as connected.
-- No third-party API secret is required for the four public job feeds. If a provider is unavailable, the page reports it rather than displaying fabricated listings.
+- Apply `supabase/jobs-auto-sync.sql` in the Supabase SQL Editor.
+- Add `SUPABASE_SERVICE_ROLE_KEY` and `JOBS_SYNC_SECRET` as server-only environment variables in Vercel, then redeploy. Generate a long random value for `JOBS_SYNC_SECRET` and use the same value in GitHub Actions secrets.
+- Add GitHub repository Actions secrets `WORLDCONNECT_APP_URL` (the deployed app's base URL, without a trailing slash) and `JOBS_SYNC_SECRET`.
+- Run the **WorldConnect automatic job sync** workflow once using Actions → WorldConnect automatic job sync → Run workflow. It then runs every six hours.
+- Imported jobs are upserted by provider ID, duplicates are removed, and listings not seen for 30 days are marked expired. Provider failures are recorded without deleting existing listings. If a provider is unavailable, its error is shown rather than inventing listings.
 
 ## Deploy
 
