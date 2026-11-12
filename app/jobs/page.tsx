@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import "./jobs.css";
 import { ArrowLeft, BriefcaseBusiness, ExternalLink, MapPin, RefreshCw, Search, Globe2 } from "lucide-react";
 
 type Job = { id: string; title: string; company: string; location: string; remote: boolean; description: string; url: string; postedAt: string | null; source: string; tags: string[]; salary: string | null };
