@@ -12,7 +12,7 @@ export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [following, setFollowing] = useState<string[]>([]);
+  const [following, setFollowing] = useState<string[]>([]);\n  const [followCounts, setFollowCounts] = useState<Record<string, { followers: number; following: number }>>({});
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -31,7 +31,7 @@ export default function ExplorePage() {
     let active = true;
     async function load() {
       const { data: { user } } = await client.auth.getUser();
-      const [memberResult, postResult, followResult] = await Promise.all([
+      const [memberResult, postResult, followResult, allFollowsResult] = await Promise.all([
         client.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
         client.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
         user ? client.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
@@ -90,7 +90,7 @@ export default function ExplorePage() {
           {visibleMembers.map(member => (
             <article className="explore-member-card" key={member.id}>
               <img className="explore-avatar" src={member.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces"} alt=""/>
-              <div className="explore-member-copy"><strong>{member.display_name || member.username}</strong><span>@{member.username}</span><small>{member.country || "WorldConnect member"}</small>{member.bio && <p>{member.bio}</p>}</div>
+              <div className="explore-member-copy"><strong>{member.display_name || member.username}</strong><span>@{member.username}</span><small>{member.country || "WorldConnect member"}</small><div className="explore-follow-stats"><span><strong>{(followCounts[member.id]?.followers || 0).toLocaleString()}</strong> followers</span><span><strong>{(followCounts[member.id]?.following || 0).toLocaleString()}</strong> following</span></div>{member.bio && <p>{member.bio}</p>}</div>
               <button className={following.includes(member.id) ? "feature-secondary" : "feature-primary"} disabled={busyId === member.id} onClick={() => void toggleFollow(member.id)}>
                 {following.includes(member.id) ? <><UserCheck size={15}/> Following</> : <><UserPlus size={15}/> Follow</>}
               </button>
