@@ -7,6 +7,8 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 ## Features
 
 - Email/password registration, sign-in and sign-out
+- Optional immediate account activation with a welcome greeting email (Supabase email confirmation disabled)
+- Forgot-password email and secure password reset flow
 - Member profile editor and profile photo upload
 - Community feed with persistent member-created text, photo and video posts
 - No seeded/demo feed posts; an empty feed is shown until real members publish
@@ -42,6 +44,26 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 5. Set the two public Supabase environment variables in Vercel and redeploy.
 
 The optional `supabase/remove-demo-content-and-integrations.sql` is an audit-only script. It does not delete member content.
+
+## Account email and password recovery
+
+To let new members sign in immediately without an account-confirmation email:
+
+1. In Supabase Dashboard, open **Authentication → Sign In / Providers → Email** (the exact menu label may vary).
+2. Turn **Confirm email** OFF and save. This is a project-level Auth setting; the app cannot change it securely.
+3. Keep email/password sign-in enabled.
+4. In **Authentication → URL Configuration**, allow your deployed app's `/auth/callback` URL (and the localhost callback URL for local testing).
+
+New signups then create an active session and the app calls the `send-welcome-email` Edge Function. Deploy it and configure a verified sender:
+
+```bash
+supabase functions deploy send-welcome-email
+supabase secrets set RESEND_API_KEY=your_resend_api_key WELCOME_FROM_EMAIL="WorldConnect <welcome@your-verified-domain.com>"
+```
+
+Create a Resend account, verify the sending domain, and use an address on that verified domain for `WELCOME_FROM_EMAIL`. The function verifies the signed-in Supabase user and sends only to that user's own account email. If the Edge Function or mail provider is not configured, account creation still works but the welcome email is not sent.
+
+Password recovery is available at `/forgot-password`; the email link returns through `/auth/callback?next=/reset-password`. Ensure the deployed callback URL is included in Supabase's redirect URL allowlist. The reset page requires a valid, unexpired recovery session before it changes a password.
 
 ## Jobs and social sharing
 
