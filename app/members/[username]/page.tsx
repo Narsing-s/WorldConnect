@@ -55,13 +55,19 @@ export default function MemberProfilePage(){
   if(!userId){router.push("/login");return;}
   if(!profile||profile.id===userId)return;
   const supabase=createClient();if(!supabase)return;
+  const wasFollowing=following;
   setBusy(true);
-  const result=following
+  setFollowing(!wasFollowing);
+  setFollowers(value=>Math.max(0,value+(wasFollowing?-1:1)));
+  const result=wasFollowing
    ?await supabase.from("wc_follows").delete().eq("follower_id",userId).eq("following_id",profile.id)
    :await supabase.from("wc_follows").insert({follower_id:userId,following_id:profile.id});
   setBusy(false);
-  if(result.error){setNotice("Could not update follow: "+result.error.message);return;}
-  setFollowing(!following);setFollowers(value=>Math.max(0,value+(following?-1:1)));
+  if(result.error){
+   setFollowing(wasFollowing);
+   setFollowers(value=>Math.max(0,value+(wasFollowing?1:-1)));
+   setNotice("Could not update follow: "+result.error.message);
+  }
  }
 
  async function messageMember(){
