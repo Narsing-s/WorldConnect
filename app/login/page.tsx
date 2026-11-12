@@ -16,34 +16,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [resending, setResending] = useState(false);
-
-  async function resendConfirmation() {
-    setError(""); setMessage("");
-    const supabase = createClient();
-    if (!supabase) {
-      setError("Backend is not connected. Please try again after the Supabase settings are configured.");
-      return;
-    }
-    if (!email.trim()) {
-      setError("Enter the email address you used to create your account.");
-      return;
-    }
-    setResending(true);
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (resendError) throw resendError;
-      setMessage("A new confirmation email has been requested. Check your inbox and Spam/Junk folder.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not resend the confirmation email. Please try again.");
-    } finally {
-      setResending(false);
-    }
-  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,8 +39,7 @@ export default function LoginPage() {
           },
         });
         if (authError) throw authError;
-        if (data.session) router.replace("/");
-        else setMessage("Account created. Check your email to confirm your address, then sign in.");
+        if (data.session) {\n          const { error: greetingError } = await supabase.functions.invoke("send-welcome-email");\n          if (greetingError) setMessage("Your account is ready! Welcome to WorldConnect. (The welcome email could not be sent just now.)");\n          router.replace("/");\n          router.refresh();\n        } else {\n          setMessage("Your account was created, but email confirmation is still enabled in Supabase. Disable Confirm email in Supabase Authentication settings to allow immediate sign-in.");\n        }
       } else {
         const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (authError) throw authError;
@@ -101,7 +72,7 @@ export default function LoginPage() {
           <label>Password<div className="auth-input"><Lock size={17}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required/></div></label>
           {error && <div className="auth-alert error" role="alert">{error}</div>}
           {message && <div className="auth-alert success" role="status">{message}</div>}
-          {mode === "signup" && <button className="auth-resend" type="button" onClick={resendConfirmation} disabled={resending}>{resending ? "Sending..." : "Resend confirmation email"}</button>}
+          {mode === "login" && <div className="auth-forgot-row"><Link href="/forgot-password">Forgot password?</Link></div>}
           <button className="auth-submit" type="submit" disabled={busy}>{busy ? <><LoaderCircle className="auth-spin" size={17}/> Please wait...</> : mode === "login" ? "Sign in to WorldConnect" : "Create my account"}</button>
         </form>
         <p className="auth-legal">By continuing, you agree to help keep WorldConnect respectful, safe and welcoming.</p>
