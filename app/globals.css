@@ -120,3 +120,39 @@
 .profile-social-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 22px}.profile-social-stats>div{display:grid;gap:4px;padding:15px;border:1px solid #dfeae2;border-radius:12px;background:#f7fbf8;text-align:center}.profile-social-stats strong{font-size:22px;line-height:1.2;color:#20784f}.profile-social-stats span{font-size:11px;font-weight:700;color:#75877b}.explore-follow-stats{display:flex;flex-wrap:wrap;gap:12px;margin-top:7px;color:#819087;font-size:10px}.explore-follow-stats strong{color:#26794e;font-size:11px}.explore-member-copy .explore-follow-stats span{font-size:10px}
 
 .auth-forgot-row{display:flex;justify-content:flex-end;margin-top:-5px}.auth-forgot-row a{color:#8d9df8;font-size:11px;font-weight:700;text-decoration:none}.auth-forgot-row a:hover{text-decoration:underline}
+
+
+/* Public member profiles and member search */
+.post-author-link{color:inherit;text-decoration:none;border-radius:7px;padding:2px 4px;margin-left:-4px}
+.post-author-link:hover strong{text-decoration:underline;color:var(--green)}
+.post-profile-avatar{display:flex;border-radius:50%;flex-shrink:0}
+.post-profile-avatar:focus-visible,.post-author-link:focus-visible{outline:2px solid #84c9aa;outline-offset:3px}
+.message-search-results{margin:10px 0 16px;padding:12px 14px;background:#fff;border:1px solid #e2ebe5;border-radius:13px}
+.message-search-person{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid #eff3f0}
+.message-search-person>img,.message-search-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#edf6f0;color:#39845d;flex-shrink:0}
+.message-search-person>a{display:grid;gap:3px;min-width:0;flex:1;text-decoration:none;color:#304238}
+.message-search-person>a strong{font-size:12px}
+.message-search-person>a small{font-size:10px;color:#89978e}
+.message-search-person>.feature-primary{padding:8px 12px}
+.member-profile-page{max-width:900px}
+.member-profile-card{overflow:hidden;background:#fff;border:1px solid #e2ebe5;border-radius:17px;margin:16px 0}
+.member-profile-cover{height:125px;background:linear-gradient(120deg,#173c2d,#367e59 58%,#9bc9a9);display:flex;align-items:center;justify-content:flex-end;padding:25px;color:#ffffff70}
+.member-profile-main{padding:0 22px 22px;position:relative}
+.member-profile-avatar{width:104px;height:104px;border-radius:50%;object-fit:cover;border:5px solid white;margin-top:-52px;background:#edf5ef}
+.member-profile-actions{float:right;display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.member-profile-main h1{font-size:24px;margin:12px 0 2px;color:#26382e}
+.member-profile-handle{font-size:12px;color:#829188;margin:0}
+.member-profile-country{display:flex;align-items:center;gap:6px;font-size:11px;color:#75847a;margin:12px 0 0}
+.member-profile-bio{font-size:13px;line-height:1.7;color:#536159;white-space:pre-wrap;margin:14px 0}
+.member-profile-stats{display:flex;gap:22px;flex-wrap:wrap;border-top:1px solid #eef2ef;margin-top:17px;padding-top:15px;font-size:11px;color:#7b8980}
+.member-profile-stats strong{color:#26382e;font-size:14px;margin-right:4px}
+.member-profile-posts{display:grid;gap:12px}
+.member-post-card{background:#fff;border:1px solid #e2ebe5;border-radius:14px;padding:16px}
+.member-post-card time{font-size:10px;color:#9aa59e}
+.member-post-card p{font-size:13px;line-height:1.7;color:#536159;white-space:pre-wrap}
+.member-post-card>img,.member-post-card>video{display:block;width:100%;max-height:420px;object-fit:contain;border-radius:10px;background:#f4f7f4}
+.member-post-stats{display:flex;justify-content:space-between;border-top:1px solid #eff3f0;padding-top:11px;margin-top:12px;color:#8a9790;font-size:10px}
+.explore-profile-avatar-link{display:block}
+.explore-member-profile-link{display:grid;gap:3px;color:inherit;text-decoration:none}
+.explore-member-profile-link:hover strong{text-decoration:underline;color:var(--green)}
+@media(max-width:640px){.member-profile-main{padding:0 15px 18px}.member-profile-avatar{width:86px;height:86px;margin-top:-43px}.member-profile-actions{margin-top:12px}.member-profile-actions button,.member-profile-actions a{font-size:10px;padding:8px 10px}.member-profile-main h1{font-size:21px}.member-profile-stats{gap:13px}}
