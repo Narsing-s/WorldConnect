@@ -156,3 +156,6 @@
 .explore-member-profile-link{display:grid;gap:3px;color:inherit;text-decoration:none}
 .explore-member-profile-link:hover strong{text-decoration:underline;color:var(--green)}
 @media(max-width:640px){.member-profile-main{padding:0 15px 18px}.member-profile-avatar{width:86px;height:86px;margin-top:-43px}.member-profile-actions{margin-top:12px}.member-profile-actions button,.member-profile-actions a{font-size:10px;padding:8px 10px}.member-profile-main h1{font-size:21px}.member-profile-stats{gap:13px}}
+
+.message-retry{display:inline-flex;align-items:center;margin-top:6px;padding:4px 8px;border:1px solid #d9a4a4;border-radius:7px;background:#fff5f5;color:#a13f3f;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.message-retry:hover{background:#ffeaea}
