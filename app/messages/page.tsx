@@ -25,6 +25,7 @@ export default function MessagesPage(){
  const [uploading,setUploading]=useState(false);
  const [realtimeState,setRealtimeState]=useState<"connecting"|"connected"|"fallback">("connecting");
  const attachmentInput=useRef<HTMLInputElement>(null);
+ const lastPolledIncoming=useRef("");
 
  async function load(){
   const supabase=createClient();
@@ -122,6 +123,8 @@ export default function MessagesPage(){
     .eq("conversation_id",selected).order("created_at",{ascending:false}).order("id",{ascending:false}).limit(100);
    if(!data)return;
    const latest=(data as Message[]).reverse();
+   const newestIncoming=[...latest].reverse().find(message=>message.sender_id!==userId);
+   if(newestIncoming){const incomingKey=selected+":"+newestIncoming.id;if(lastPolledIncoming.current!==incomingKey){lastPolledIncoming.current=incomingKey;void markConversationRead(selected);}}
    setMessages(current=>{
     const unique=new Map<string,Message>();
     for(const message of [...current,...latest])unique.set(message.id,message);
@@ -130,6 +133,33 @@ export default function MessagesPage(){
   },4000);
   return()=>{window.clearInterval(fallbackPoll);void supabase.removeChannel(channel);};
  },[userId,selected]);
+
+ useEffect(()=>{
+  if(!userId)return;
+  const supabase=createClient();if(!supabase)return;
+  const refreshInbox=async()=>{
+   const {data:members}=await supabase.from("wc_conversation_members")
+    .select("conversation_id,last_read_at").eq("user_id",userId);
+   if(!members?.length)return;
+   const refreshed=await Promise.all(members.map(async member=>{
+    let countQuery=supabase.from("wc_messages").select("id",{count:"exact",head:true})
+     .eq("conversation_id",member.conversation_id).neq("sender_id",userId);
+    if(member.last_read_at)countQuery=countQuery.gt("created_at",member.last_read_at);
+    const [countResult,lastResult]=await Promise.all([
+     countQuery,
+     supabase.from("wc_messages").select("body,created_at").eq("conversation_id",member.conversation_id)
+      .order("created_at",{ascending:false}).order("id",{ascending:false}).limit(1).maybeSingle()
+    ]);
+    return {id:member.conversation_id,unreadCount:countResult.count||0,last:lastResult.data?.body,lastAt:lastResult.data?.created_at};
+   }));
+   setThreads(current=>current.map(thread=>{
+    const latest=refreshed.find(item=>item.id===thread.id);
+    return latest?{...thread,unreadCount:latest.unreadCount,last:latest.last??thread.last,lastAt:latest.lastAt??thread.lastAt}:thread;
+   }));
+  };
+  const timer=window.setInterval(()=>void refreshInbox(),15000);
+  return()=>window.clearInterval(timer);
+ },[userId]);
 
  useEffect(()=>{
   if(!selected||!userId)return;
@@ -282,17 +312,25 @@ export default function MessagesPage(){
    setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;
   }
   const {data:publicData}=supabase.storage.from("worldconnect-media").getPublicUrl(path);
+  const messageId=crypto.randomUUID();
   const {data,error:messageError}=await supabase.from("wc_messages")
-   .insert({conversation_id:conversationAtSend,sender_id:userId,body,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type})
+   .insert({id:messageId,conversation_id:conversationAtSend,sender_id:userId,body,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type})
    .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
    .single();
+  let savedMessage=data as Message|null;
+  if(messageError||!savedMessage){
+   const {data:existing}=await supabase.from("wc_messages")
+    .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+    .eq("id",messageId).maybeSingle();
+   savedMessage=existing as Message|null;
+  }
   setUploading(false);
-  if(messageError||!data){
+  if(!savedMessage){
    URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
    setNotice("File uploaded, but the message could not be saved: "+(messageError?.message||"No message record was returned"));return;
   }
   URL.revokeObjectURL(previewUrl);
-  setMessages(current=>current.map(message=>message.id===temporaryId?data as Message:message));
+  setMessages(current=>current.map(message=>message.id===temporaryId?{...savedMessage,delivery_status:"sent"}:message));
   setDraft("");
   setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:data.created_at}:thread));
  }
