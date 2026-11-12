@@ -194,10 +194,26 @@ export default function HomePage() {
       setNotice("Comments on sample posts are read-only. Publish a post from your account to start a discussion.");
       return;
     }
-    const { error } = await supabase.from("wc_comments").insert({ post_id: commentPost.id, author_id: user.id, body: value });
-    if (error) { setNotice("Comment could not be posted: " + error.message); return; }
-    setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), { id: crypto.randomUUID(), body: value, author_id: user.id, created_at: new Date().toISOString(), author: { display_name: String(user.user_metadata?.display_name || user.user_metadata?.username || "You"), username: String(user.user_metadata?.username || "you") } }] }));
+    const temporaryId = `pending-${crypto.randomUUID()}`;
+    const optimisticComment: Comment = {
+      id: temporaryId, body: value, author_id: user.id, created_at: new Date().toISOString(),
+      author: { display_name: String(user.user_metadata?.display_name || user.user_metadata?.username || "You"), username: String(user.user_metadata?.username || "you") }
+    };
+    setCommentsByPost(current => ({ ...current, [commentPost.id]: [...(current[commentPost.id] || []), optimisticComment] }));
+    setPosts(current => current.map(post => post.id === commentPost.id ? { ...post, comments: post.comments + 1 } : post));
     setCommentDraft("");
+    const { data, error } = await supabase.from("wc_comments")
+      .insert({ post_id: commentPost.id, author_id: user.id, body: value })
+      .select("id,body,author_id,created_at")
+      .single();
+    if (error) {
+      setCommentsByPost(current => ({ ...current, [commentPost.id]: (current[commentPost.id] || []).filter(item => item.id !== temporaryId) }));
+      setPosts(current => current.map(post => post.id === commentPost.id ? { ...post, comments: Math.max(0, post.comments - 1) } : post));
+      setCommentDraft(value);
+      setNotice("Comment could not be posted: " + error.message);
+      return;
+    }
+    setCommentsByPost(current => ({ ...current, [commentPost.id]: (current[commentPost.id] || []).map(item => item.id === temporaryId ? { ...item, id: data.id } : item) }));
   }
 
   async function toggleSaved(post: Post) {
@@ -206,12 +222,15 @@ export default function HomePage() {
     const supabase = createClient();
     if (!supabase) return;
     const exists = savedIds.includes(post.id);
+    setSavedIds(current => exists ? current.filter(id => id !== post.id) : [...current, post.id]);
+    setNotice(exists ? "Removed from Saved." : "Post saved to your collection.");
     const result = exists
       ? await supabase.from("wc_saved_posts").delete().eq("user_id", user.id).eq("post_id", post.id)
       : await supabase.from("wc_saved_posts").insert({ user_id: user.id, post_id: post.id });
-    if (result.error) { setNotice("Saved item could not be updated: " + result.error.message); return; }
-    setSavedIds(current => exists ? current.filter(id => id !== post.id) : [...current, post.id]);
-    setNotice(exists ? "Removed from Saved." : "Post saved to your collection.");
+    if (result.error) {
+      setSavedIds(current => exists ? [...current, post.id] : current.filter(id => id !== post.id));
+      setNotice("Saved item could not be updated: " + result.error.message);
+    }
   }
 
   async function sharePost(post: Post) {
