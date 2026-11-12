@@ -7,12 +7,15 @@ import { createClient } from "@/lib/supabase";
 
 type Member = { id: string; username: string; display_name: string | null; bio: string | null; country: string | null; avatar_url: string | null };
 type FeedPost = { id: string; body: string; image_url: string | null; video_url: string | null; created_at: string; author: { username: string; display_name: string | null } | null };
+type FollowRow = { follower_id: string; following_id: string };
+type FollowCounts = { followers: number; following: number };
 
 export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [following, setFollowing] = useState<string[]>([]);\n  const [followCounts, setFollowCounts] = useState<Record<string, { followers: number; following: number }>>({});
+  const [following, setFollowing] = useState<string[]>([]);
+  const [followCounts, setFollowCounts] = useState<Record<string, FollowCounts>>({});
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -34,7 +37,8 @@ export default function ExplorePage() {
       const [memberResult, postResult, followResult, allFollowsResult] = await Promise.all([
         client.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
         client.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
-        user ? client.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
+        user ? client.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null }),
+        client.from("wc_follows").select("follower_id,following_id"),
       ]);
       if (!active) return;
       setUserId(user?.id || "");
@@ -44,6 +48,17 @@ export default function ExplorePage() {
       else setPosts((postResult.data || []) as unknown as FeedPost[]);
       if (followResult.error) setNotice("Could not load your following list: " + followResult.error.message);
       else setFollowing((followResult.data || []).map((item: { following_id: string }) => item.following_id));
+      if (allFollowsResult.error) setNotice("Could not load connection counts: " + allFollowsResult.error.message);
+      else {
+        const counts: Record<string, FollowCounts> = {};
+        for (const row of (allFollowsResult.data || []) as FollowRow[]) {
+          counts[row.following_id] ??= { followers: 0, following: 0 };
+          counts[row.follower_id] ??= { followers: 0, following: 0 };
+          counts[row.following_id].followers += 1;
+          counts[row.follower_id].following += 1;
+        }
+        setFollowCounts(counts);
+      }
       setLoading(false);
     }
     void load().catch((error: unknown) => {
@@ -74,6 +89,13 @@ export default function ExplorePage() {
     setBusyId("");
     if (result.error) { setNotice("Could not update follow: " + result.error.message); return; }
     setFollowing(current => isFollowing ? current.filter(id => id !== memberId) : [...current, memberId]);
+    setFollowCounts(current => {
+      const currentMember = current[memberId] || { followers: 0, following: 0 };
+      return {
+        ...current,
+        [memberId]: { ...currentMember, followers: Math.max(0, currentMember.followers + (isFollowing ? -1 : 1)) },
+      };
+    });
   }
 
   return (
