@@ -19,7 +19,10 @@ export default function MessagesPage(){
  const [searching,setSearching]=useState(false);
  const [draft,setDraft]=useState("");
  const [notice,setNotice]=useState("Loading inbox…");
- const [busyId,setBusyId]=useState("");\n const [onlineIds,setOnlineIds]=useState<string[]>([]);\n const [uploading,setUploading]=useState(false);\n const attachmentInput=useRef<HTMLInputElement>(null);
+ const [busyId,setBusyId]=useState("");
+ const [onlineIds,setOnlineIds]=useState<string[]>([]);
+ const [uploading,setUploading]=useState(false);
+ const attachmentInput=useRef<HTMLInputElement>(null);
 
  async function load(){
   const supabase=createClient();
@@ -57,7 +60,18 @@ export default function MessagesPage(){
   else if(!selected&&next[0])setSelected(next[0].id);
   if(selected&&!ids.includes(selected))setSelected(next[0]?.id||"");
  }
- useEffect(()=>{void load();},[]);\n\n useEffect(()=>{\n  if(!userId)return;\n  const supabase=createClient();if(!supabase)return;\n  const channel=supabase.channel("wc-online-presence",{config:{presence:{key:userId}}});\n  const refresh=()=>setOnlineIds(Object.keys(channel.presenceState()));\n  channel.on("presence",{event:"sync"},refresh).on("presence",{event:"join"},refresh).on("presence",{event:"leave"},refresh).subscribe(async status=>{\n   if(status==="SUBSCRIBED"){await channel.track({user_id:userId,online_at:new Date().toISOString()});refresh();}\n  });\n  return()=>{void supabase.removeChannel(channel);};\n },[userId]);
+ useEffect(()=>{void load();},[]);
+
+ useEffect(()=>{
+  if(!userId)return;
+  const supabase=createClient();if(!supabase)return;
+  const channel=supabase.channel("wc-online-presence",{config:{presence:{key:userId}}});
+  const refresh=()=>setOnlineIds(Object.keys(channel.presenceState()));
+  channel.on("presence",{event:"sync"},refresh).on("presence",{event:"join"},refresh).on("presence",{event:"leave"},refresh).subscribe(async status=>{
+   if(status==="SUBSCRIBED"){await channel.track({user_id:userId,online_at:new Date().toISOString()});refresh();}
+  });
+  return()=>{void supabase.removeChannel(channel);};
+ },[userId]);
 
  useEffect(()=>{
   if(!selected||!userId)return;
@@ -118,7 +132,28 @@ export default function MessagesPage(){
   setMessages((data||[]) as Message[]);
   await load();
  }
- const active=threads.find(x=>x.id===selected);\n const totalMessages=threads.reduce((sum,thread)=>sum+thread.messageCount,0);\n const isOnline=(id:string)=>onlineIds.includes(id);\n\n async function attachFile(event:React.ChangeEvent<HTMLInputElement>){\n  const file=event.target.files?.[0];event.target.value="";if(!file||!selected||!userId)return;\n  if(!file.type.startsWith("image/")&&!file.type.startsWith("video/")){setNotice("Please attach an image or video.");return;}\n  if(file.size>50*1024*1024){setNotice("Attachment must be 50 MB or smaller.");return;}\n  const supabase=createClient();if(!supabase)return;\n  setUploading(true);setNotice("");\n  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"attachment";\n  const path=`${userId}/messages/${Date.now()}-${safeName}`;\n  const {error:uploadError}=await supabase.storage.from("worldconnect-media").upload(path,file,{contentType:file.type,upsert:false});\n  if(uploadError){setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;}\n  const {data:publicData}=supabase.storage.from("worldconnect-media").getPublicUrl(path);\n  const {error:messageError}=await supabase.from("wc_messages").insert({conversation_id:selected,sender_id:userId,body:draft.trim()||file.name,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type});\n  setUploading(false);\n  if(messageError){setNotice("File uploaded, but the message could not be saved: "+messageError.message);return;}\n  setDraft("");\n  const {data}=await supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type").eq("conversation_id",selected).order("created_at",{ascending:true});\n  setMessages((data||[]) as Message[]);await load();\n }
+ const active=threads.find(x=>x.id===selected);
+ const totalMessages=threads.reduce((sum,thread)=>sum+thread.messageCount,0);
+ const isOnline=(id:string)=>onlineIds.includes(id);
+
+ async function attachFile(event:React.ChangeEvent<HTMLInputElement>){
+  const file=event.target.files?.[0];event.target.value="";if(!file||!selected||!userId)return;
+  if(!file.type.startsWith("image/")&&!file.type.startsWith("video/")){setNotice("Please attach an image or video.");return;}
+  if(file.size>50*1024*1024){setNotice("Attachment must be 50 MB or smaller.");return;}
+  const supabase=createClient();if(!supabase)return;
+  setUploading(true);setNotice("");
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"attachment";
+  const path=`${userId}/messages/${Date.now()}-${safeName}`;
+  const {error:uploadError}=await supabase.storage.from("worldconnect-media").upload(path,file,{contentType:file.type,upsert:false});
+  if(uploadError){setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;}
+  const {data:publicData}=supabase.storage.from("worldconnect-media").getPublicUrl(path);
+  const {error:messageError}=await supabase.from("wc_messages").insert({conversation_id:selected,sender_id:userId,body:draft.trim()||file.name,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type});
+  setUploading(false);
+  if(messageError){setNotice("File uploaded, but the message could not be saved: "+messageError.message);return;}
+  setDraft("");
+  const {data}=await supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type").eq("conversation_id",selected).order("created_at",{ascending:true});
+  setMessages((data||[]) as Message[]);await load();
+ }
  return <main className="feature-page">
   <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
   <header className="feature-heading"><span><MessageCircle size={22}/></span><div><h1>Messages <span className="message-total-count">{totalMessages}</span></h1><p>Find registered members and start private conversations.</p></div></header>
