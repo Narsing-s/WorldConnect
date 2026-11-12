@@ -32,6 +32,7 @@ export default function HomePage() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<User | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [profileName, setProfileName] = useState("Sign in");
   const [profileAvatar, setProfileAvatar] = useState("");
   const [commentPost, setCommentPost] = useState<Post | null>(null);
@@ -49,31 +50,41 @@ export default function HomePage() {
 
   useEffect(() => {
     const supabase = createClient();
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
-      setProfileName(String(data.user?.user_metadata?.display_name || data.user?.user_metadata?.username || data.user?.email?.split("@")[0] || "Profile"));
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setProfileName(String(session?.user?.user_metadata?.display_name || session?.user?.user_metadata?.username || session?.user?.email?.split("@")[0] || "Sign in"));
-    });
-    supabase.auth.getUser().then(async ({data}) => {
-      const currentUser = data.user;
-      const [{data:ownProfile},{data:profiles},{data:follows}] = await Promise.all([
-        currentUser
-          ? supabase.from("wc_profiles").select("display_name,username,avatar_url").eq("id",currentUser.id).maybeSingle()
-          : Promise.resolve({data:null}),
-        supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id",currentUser?.id || "00000000-0000-0000-0000-000000000000").limit(5),
-        currentUser
-          ? supabase.from("wc_follows").select("following_id").eq("follower_id",currentUser.id)
-          : Promise.resolve({data: [] as {following_id:string}[]})
+    if (!supabase) { setAuthResolved(true); return; }
+    let active = true;
+    const applySession = async (currentUser: User | null) => {
+      if (!active) return;
+      setUser(currentUser);
+      setAuthResolved(true);
+      setProfileName(String(currentUser?.user_metadata?.display_name || currentUser?.user_metadata?.username || currentUser?.email?.split("@")[0] || "Sign in"));
+      if (!currentUser) {
+        setProfileAvatar("");
+        setPeople([]);
+        setFollowing([]);
+        return;
+      }
+      const [{ data: ownProfile }, { data: profiles }, { data: follows }] = await Promise.all([
+        supabase.from("wc_profiles").select("display_name,username,avatar_url").eq("id", currentUser.id).maybeSingle(),
+        supabase.from("wc_profiles").select("id,username,display_name,avatar_url,country").neq("id", currentUser.id).limit(5),
+        supabase.from("wc_follows").select("following_id").eq("follower_id", currentUser.id)
       ]);
-      if (ownProfile) { setProfileName(ownProfile.display_name || ownProfile.username || currentUser?.email?.split("@")[0] || "Profile"); setProfileAvatar(ownProfile.avatar_url || ""); }
-      setPeople((profiles||[]).map((p:MemberSummary)=>({id:p.id,name:p.display_name||p.username,role:p.country||"WorldConnect member",avatar:p.avatar_url||"https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"})));
-      setFollowing((follows||[]).map((f:FollowSummary)=>f.following_id));
+      if (!active) return;
+      if (ownProfile) {
+        setProfileName(ownProfile.display_name || ownProfile.username || currentUser.email?.split("@")[0] || "Profile");
+        setProfileAvatar(ownProfile.avatar_url || "");
+      }
+      setPeople((profiles || []).map((p: MemberSummary) => ({
+        id: p.id, name: p.display_name || p.username, role: p.country || "WorldConnect member",
+        avatar: p.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=100&h=100&fit=crop&crop=faces"
+      })));
+      setFollowing((follows || []).map((f: FollowSummary) => f.following_id));
+    };
+    supabase.auth.getUser().then(({ data }) => applySession(data.user ?? null))
+      .catch(() => { if (active) setAuthResolved(true); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applySession(session?.user ?? null);
     });
-    return () => listener.subscription.unsubscribe();
+    return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
@@ -82,6 +93,12 @@ export default function HomePage() {
   }, [mediaPreview]);
 
   useEffect(() => {
+    if (!authResolved || !user) {
+      setPosts([]);
+      setSavedIds([]);
+      setFeedLoading(false);
+      return;
+    }
     const supabase = createClient();
     if (!supabase) return;
     let active = true;
@@ -120,7 +137,7 @@ export default function HomePage() {
     }).catch(() => setNotice("Unable to load the community feed. Please try again."))
       .finally(() => { if (active) setFeedLoading(false); });
     return () => { active = false; };
-  }, [user]);
+  }, [user, authResolved]);
 
   useEffect(() => {
     const postId = new URLSearchParams(window.location.search).get("post");
@@ -345,6 +362,29 @@ export default function HomePage() {
   }
   function selectFeedTab(next: string) { if ((next === "Following" || next === "Saved") && !user) { window.location.href = "/login"; return; } setTab(next); }
   const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Jobs",icon:BriefcaseBusiness},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Integrations",icon:Globe2},{label:"Saved",icon:Bookmark}];
+
+  if (!authResolved) {
+    return <main className="auth-page"><section className="auth-card" aria-live="polite"><div className="auth-brand"><span><Globe2 size={25}/></span>world<b>connect</b></div><h1>Preparing your world…</h1><p className="auth-subtitle">Checking your secure sign-in session.</p></section></main>;
+  }
+
+  if (!user) {
+    return (
+      <main className="auth-page">
+        <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
+        <section className="auth-card">
+          <Link href="/" className="auth-brand"><span><Globe2 size={25}/></span>world<b>connect</b></Link>
+          <div className="auth-eyebrow">A GLOBAL COMMUNITY</div>
+          <h1>Your world starts here.</h1>
+          <p className="auth-subtitle">Sign in to see your feed, connect with people, join communities and discover opportunities. Your personal community content stays private until you sign in.</p>
+          <div className="auth-form">
+            <Link className="auth-submit" href="/login">Sign in to WorldConnect</Link>
+            <Link className="auth-submit" href="/login?mode=signup">Create a free account</Link>
+          </div>
+          <p className="auth-legal">One world. Millions of connections.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
