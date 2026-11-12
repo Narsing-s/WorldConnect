@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     }
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: window.location.origin + "/auth/callback?next=/reset-password",
+        redirectTo: "https://worldconnect-plum.vercel.app/auth/callback?next=/reset-password",
       });
       if (resetError) throw resetError;
       setMessage("If an account exists for that email, a password reset link has been sent. Check your inbox and Spam/Junk folder.");
