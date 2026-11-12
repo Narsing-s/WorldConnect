@@ -39,7 +39,8 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 
 1. Open the Supabase SQL Editor for the project.
 2. Run the complete `supabase/schema.sql` script from this repository.
-3. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for localhost and your deployed `/auth/callback` URL.
+3. For an existing installation, also run `supabase/fix-direct-message-duplicates.sql` once. This safely updates direct-message creation so repeated taps or retries reuse the same one-to-one conversation; it does not delete conversations or messages.
+4. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for localhost and your deployed `/auth/callback` URL.
 4. Enable email/password authentication and configure the email provider/confirmation settings you want.
 5. Set the two public Supabase environment variables in Vercel and redeploy.
 
