@@ -125,12 +125,28 @@ export default function MessagesPage(){
   event.preventDefault();if(!draft.trim()||!selected)return;
   const supabase=createClient();if(!supabase)return;
   const body=draft.trim();
-  const {error}=await supabase.from("wc_messages").insert({conversation_id:selected,sender_id:userId,body});
-  if(error){setNotice(error.message);return;}
+  const temporaryId=`pending-${crypto.randomUUID()}`;
+  const optimistic:Message={id:temporaryId,conversation_id:selected,sender_id:userId,body,created_at:new Date().toISOString()};
+  setMessages(current=>[...current,optimistic]);
   setDraft("");
-  const {data}=await supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type").eq("conversation_id",selected).order("created_at",{ascending:true});
-  setMessages((data||[]) as Message[]);
-  await load();
+  setNotice("");
+  setThreads(current=>current.map(thread=>thread.id===selected
+    ?{...thread,last:body,lastAt:optimistic.created_at,messageCount:thread.messageCount+1}
+    :thread));
+  const {data,error}=await supabase.from("wc_messages")
+    .insert({conversation_id:selected,sender_id:userId,body})
+    .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+    .single();
+  if(error){
+   setMessages(current=>current.filter(message=>message.id!==temporaryId));
+   setDraft(body);
+   setThreads(current=>current.map(thread=>thread.id===selected
+    ?{...thread,messageCount:Math.max(0,thread.messageCount-1)}
+    :thread));
+   setNotice(error.message);
+   return;
+  }
+  setMessages(current=>current.map(message=>message.id===temporaryId?data as Message:message));
  }
  const active=threads.find(x=>x.id===selected);
  const totalMessages=threads.reduce((sum,thread)=>sum+thread.messageCount,0);
