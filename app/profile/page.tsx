@@ -16,14 +16,14 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);\n  const [followerCount, setFollowerCount] = useState(0);\n  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
     if (!supabase) { setError("Connect Supabase before editing your profile."); setLoading(false); return; }
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
-      const { data, error: readError } = await supabase.from("wc_profiles").select("username,display_name,bio,avatar_url,country").eq("id", user.id).maybeSingle();
+      const [profileResult, followersResult, followingResult] = await Promise.all([\n        supabase.from("wc_profiles").select("username,display_name,bio,avatar_url,country").eq("id", user.id).maybeSingle(),\n        supabase.from("wc_follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),\n        supabase.from("wc_follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id)\n      ]);\n      const { data, error: readError } = profileResult;\n      if (!followersResult.error) setFollowerCount(followersResult.count || 0);\n      if (!followingResult.error) setFollowingCount(followingResult.count || 0);
       if (readError) setError(readError.message);
       else if (data) setProfile({ ...data, country: data.country || "" });
       else setError("Your profile is not ready yet. Run the WorldConnect SQL setup in Supabase.");
@@ -85,7 +85,7 @@ export default function ProfilePage() {
       <div className="profile-page-brand"><Globe2 size={24}/> world<span>connect</span></div>
       <h1>Your profile</h1>
       <p>Choose how people around the world see you.</p>
-      {loading ? <div className="profile-loading"><LoaderCircle className="auth-spin"/> Loading profile…</div> : <form onSubmit={save} className="profile-form">
+      {loading ? <div className="profile-loading"><LoaderCircle className="auth-spin"/> Loading profile…</div> : <>\n      <div className="profile-social-stats" aria-label="Your social connections">\n        <div><strong>{followerCount.toLocaleString()}</strong><span>Followers</span></div>\n        <div><strong>{followingCount.toLocaleString()}</strong><span>Following</span></div>\n      </div>\n      <form onSubmit={save} className="profile-form">
         <label>Username<input value={profile.username} readOnly /></label>
         <label>Display name<input value={profile.display_name} maxLength={60} required onChange={e=>setProfile(p=>({...p,display_name:e.target.value}))}/></label>
         <label>Country or city<input value={profile.country || ""} maxLength={80} placeholder="e.g. Hyderabad, India" onChange={e=>setProfile(p=>({...p,country:e.target.value}))}/></label>
