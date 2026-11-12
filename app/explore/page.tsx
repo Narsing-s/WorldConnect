@@ -111,8 +111,8 @@ export default function ExplorePage() {
         <div className="explore-member-grid">
           {visibleMembers.map(member => (
             <article className="explore-member-card" key={member.id}>
-              <img className="explore-avatar" src={member.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces"} alt=""/>
-              <div className="explore-member-copy"><strong>{member.display_name || member.username}</strong><span>@{member.username}</span><small>{member.country || "WorldConnect member"}</small><div className="explore-follow-stats"><span><strong>{(followCounts[member.id]?.followers || 0).toLocaleString()}</strong> followers</span><span><strong>{(followCounts[member.id]?.following || 0).toLocaleString()}</strong> following</span></div>{member.bio && <p>{member.bio}</p>}</div>
+              <Link className="explore-profile-avatar-link" href={`/members/${encodeURIComponent(member.username)}`} aria-label={`View ${member.display_name || member.username} profile`}><img className="explore-avatar" src={member.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377d6b?w=120&h=120&fit=crop&crop=faces"} alt=""/></Link>
+              <div className="explore-member-copy"><Link className="explore-member-profile-link" href={`/members/${encodeURIComponent(member.username)}`}><strong>{member.display_name || member.username}</strong><span>@{member.username}</span></Link><small>{member.country || "WorldConnect member"}</small><div className="explore-follow-stats"><span><strong>{(followCounts[member.id]?.followers || 0).toLocaleString()}</strong> followers</span><span><strong>{(followCounts[member.id]?.following || 0).toLocaleString()}</strong> following</span></div>{member.bio && <p>{member.bio}</p>}</div>
               <button className={following.includes(member.id) ? "feature-secondary" : "feature-primary"} disabled={busyId === member.id} onClick={() => void toggleFollow(member.id)}>
                 {following.includes(member.id) ? <><UserCheck size={15}/> Following</> : <><UserPlus size={15}/> Follow</>}
               </button>
