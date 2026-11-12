@@ -1,0 +1,21 @@
+name: WorldConnect automatic job sync
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+jobs:
+  sync-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync public job feeds into WorldConnect
+        env:
+          APP_URL: \${{ secrets.WORLDCONNECT_APP_URL }}
+          SYNC_SECRET: \${{ secrets.JOBS_SYNC_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$SYNC_SECRET" ]; then
+            echo "::error::Set WORLDCONNECT_APP_URL and JOBS_SYNC_SECRET in repository Actions secrets."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --max-time 90 \
+            -X POST "\${APP_URL%/}/api/jobs/sync" \
+            -H "Authorization: Bearer $SYNC_SECRET" -H "Content-Type: application/json"
