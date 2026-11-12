@@ -14,6 +14,8 @@ export default function MessagesPage(){
  const [threads,setThreads]=useState<Thread[]>([]);
  const [selected,setSelected]=useState("");
  const [messages,setMessages]=useState<Message[]>([]);
+ const [hasOlderMessages,setHasOlderMessages]=useState(false);
+ const [loadingOlder,setLoadingOlder]=useState(false);
  const [query,setQuery]=useState("");
  const [results,setResults]=useState<ProfileSummary[]>([]);
  const [searching,setSearching]=useState(false);
@@ -76,9 +78,43 @@ export default function MessagesPage(){
  useEffect(()=>{
   if(!selected||!userId)return;
   const supabase=createClient();if(!supabase)return;
-  supabase.from("wc_messages").select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type").eq("conversation_id",selected).order("created_at",{ascending:true})
-   .then(({data,error})=>{if(error)setNotice(error.message);else setMessages((data||[]) as Message[]);});
+  let active=true;
+  setMessages([]);
+  setHasOlderMessages(false);
+  supabase.from("wc_messages")
+   .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+   .eq("conversation_id",selected)
+   .order("created_at",{ascending:false})
+   .limit(50)
+   .then(({data,error})=>{
+    if(!active)return;
+    if(error)setNotice(error.message);
+    else{
+     const page=(data||[]) as Message[];
+     setMessages(page.reverse());
+     setHasOlderMessages(page.length===50);
+    }
+   });
+  return()=>{active=false;};
  },[selected,userId]);
+
+ async function loadOlderMessages(){
+  if(!selected||loadingOlder||!hasOlderMessages||!messages.length)return;
+  const supabase=createClient();if(!supabase)return;
+  setLoadingOlder(true);
+  const oldest=messages[0];
+  const {data,error}=await supabase.from("wc_messages")
+   .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
+   .eq("conversation_id",selected)
+   .lt("created_at",oldest.created_at)
+   .order("created_at",{ascending:false})
+   .limit(50);
+  setLoadingOlder(false);
+  if(error){setNotice("Could not load older messages: "+error.message);return;}
+  const page=(data||[]) as Message[];
+  setMessages(current=>[...page.reverse(),...current]);
+  setHasOlderMessages(page.length===50);
+ }
 
  async function searchMembers(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
@@ -188,7 +224,7 @@ export default function MessagesPage(){
   {notice&&<p className="feature-notice" role="status">{notice}</p>}
   <section className="messages-layout">
    <aside className="thread-list">{threads.map(thread=><button key={thread.id} className={selected===thread.id?"thread-active":""} onClick={()=>setSelected(thread.id)}><strong><i className={isOnline(thread.userId)?"presence-dot is-online":"presence-dot"} aria-label={isOnline(thread.userId)?"Online":"Offline"}/>{thread.label}<em className="thread-count">{thread.messageCount}</em></strong><small>@{thread.username} · {isOnline(thread.userId)?"Online":"Offline"}</small><span>{thread.last}</span></button>)}</aside>
-   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.messageCount} messages</small></header><div className="chat-messages">{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
+   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {active.messageCount} messages</small></header><div className="chat-messages">{hasOlderMessages&&<button type="button" className="feature-secondary" onClick={()=>void loadOlderMessages()} disabled={loadingOlder}>{loadingOlder?<LoaderCircle className="auth-spin"/>:"Load older messages"}</button>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}</time></div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
   </section>
  </main>;
 }
