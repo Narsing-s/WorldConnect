@@ -332,7 +332,7 @@ export default function MessagesPage(){
   URL.revokeObjectURL(previewUrl);
   setMessages(current=>current.map(message=>message.id===temporaryId?{...savedMessage,delivery_status:"sent"}:message));
   setDraft("");
-  setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:data.created_at}:thread));
+  setThreads(current=>current.map(thread=>thread.id===conversationAtSend?{...thread,last:body,lastAt:savedMessage.created_at}:thread));
  }
  return <main className="feature-page">
   <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
