@@ -2,17 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Compass, Search, Users, UserPlus, UserCheck, Globe2 } from "lucide-react";
+import { ArrowLeft, Compass, Search, UserPlus, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 type Member = { id: string; username: string; display_name: string | null; bio: string | null; country: string | null; avatar_url: string | null };
-type Community = { id: string; name: string; description: string; created_at: string };
 type FeedPost = { id: string; body: string; image_url: string | null; video_url: string | null; created_at: string; author: { username: string; display_name: string | null } | null };
 
 export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
-  const [communities, setCommunities] = useState<Community[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
@@ -25,7 +23,7 @@ export default function ExplorePage() {
     setQuery(params.get("q") || "");
     const supabase = createClient();
     if (!supabase) {
-      setNotice("Connect Supabase to discover members and communities.");
+      setNotice("Connect Supabase to discover members and posts.");
       setLoading(false);
       return;
     }
@@ -33,9 +31,8 @@ export default function ExplorePage() {
     let active = true;
     async function load() {
       const { data: { user } } = await client.auth.getUser();
-      const [memberResult, communityResult, postResult, followResult] = await Promise.all([
+      const [memberResult, postResult, followResult] = await Promise.all([
         client.from("wc_profiles").select("id,username,display_name,bio,country,avatar_url").order("created_at", { ascending: false }).limit(100),
-        client.from("wc_communities").select("id,name,description,created_at").order("created_at", { ascending: false }).limit(100),
         client.from("wc_posts").select("id,body,image_url,video_url,created_at,author:wc_profiles!wc_posts_author_id_fkey(username,display_name)").order("created_at", { ascending: false }).limit(100),
         user ? client.from("wc_follows").select("following_id").eq("follower_id", user.id) : Promise.resolve({ data: [], error: null })
       ]);
@@ -43,8 +40,6 @@ export default function ExplorePage() {
       setUserId(user?.id || "");
       if (memberResult.error) setNotice("Could not load members: " + memberResult.error.message);
       else setMembers((memberResult.data || []).filter((member: Member) => member.id !== user?.id) as Member[]);
-      if (communityResult.error) setNotice("Could not load communities: " + communityResult.error.message);
-      else setCommunities((communityResult.data || []) as Community[]);
       if (postResult.error) setNotice("Could not load posts: " + postResult.error.message);
       else setPosts((postResult.data || []) as unknown as FeedPost[]);
       if (followResult.error) setNotice("Could not load your following list: " + followResult.error.message);
@@ -66,9 +61,6 @@ export default function ExplorePage() {
       .some(value => (value || "").toLowerCase().includes(normalizedQuery))
   ), [members, normalizedQuery]);
   const visiblePosts = useMemo(() => posts.filter(post => !normalizedQuery || post.body.toLowerCase().includes(normalizedQuery)), [posts, normalizedQuery]);
-  const visibleCommunities = useMemo(() => communities.filter(community =>
-    !normalizedQuery || (community.name + " " + community.description).toLowerCase().includes(normalizedQuery)
-  ), [communities, normalizedQuery]);
 
   async function toggleFollow(memberId: string) {
     if (!userId) { window.location.assign("/login"); return; }
@@ -87,8 +79,8 @@ export default function ExplorePage() {
   return (
     <main className="feature-page explore-page">
       <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
-      <header className="feature-heading"><span><Compass size={22}/></span><div><h1>Explore</h1><p>Discover people, interests and communities around the world.</p></div></header>
-      <label className="explore-search"><Search size={18}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search people, skills, places or communities…"/></label>
+      <header className="feature-heading"><span><Compass size={22}/></span><div><h1>Explore</h1><p>Discover people and public posts from around the world.</p></div></header>
+      <label className="explore-search"><Search size={18}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search people or posts…"/></label>
       {notice && <p className="feature-notice" role="status">{notice}</p>}
       {loading && <p className="feature-notice">Loading discovery results…</p>}
       <section className="explore-section">
@@ -118,20 +110,6 @@ export default function ExplorePage() {
             <Link href={`/?post=${post.id}`}>Open discussion</Link>
           </article>)}
         </div>
-      </section>
-      <section className="explore-section">
-        <div className="feature-toolbar"><strong>Communities</strong><span>{visibleCommunities.length} spaces</span></div>
-        {!loading && visibleCommunities.length === 0 && <p className="feature-notice">No matching communities found.</p>}
-        <div className="community-list">
-          {visibleCommunities.map(community => (
-            <article className="community-card" key={community.id}>
-              <div className="community-symbol"><Users size={20}/></div>
-              <div className="community-copy"><h2>{community.name}</h2><p>{community.description}</p></div>
-              <Link className="feature-secondary explore-open-community" href={`/communities?space=${encodeURIComponent(community.name)}`}>Open community</Link>
-            </article>
-          ))}
-        </div>
-        <Link className="explore-all-communities" href="/communities"><Globe2 size={16}/> Browse all communities and join a space</Link>
       </section>
     </main>
   );
