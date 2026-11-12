@@ -14,7 +14,7 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 - No seeded/demo feed posts; an empty feed is shown until real members publish
 - Persistent appreciations (likes), comments, follows and saved posts
 - Community discovery, community creation and join/leave actions
-- Private member-to-member conversations
+- Private member-to-member conversations with live online/offline presence, per-conversation message counts and image/video attachments
 - Community opportunity board for jobs, collaborations, volunteering, events and learning
 - Live external job search from Remotive, Arbeitnow, Remote OK and Jobicy through a server-side API route
 - Job-board directory with direct links to major India and international employment sites
