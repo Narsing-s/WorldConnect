@@ -59,6 +59,10 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => { void loadJobs("", ""); }, [loadJobs]);
+  useEffect(() => {
+    const interval = window.setInterval(() => { void loadJobs(query, location); }, 5 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [loadJobs, query, location]);
   function searchJobs(event?: FormEvent) { event?.preventDefault(); void loadJobs(query, location); }
 
   const visibleJobs = useMemo(() => jobs.filter(job =>
@@ -70,7 +74,7 @@ export default function JobsPage() {
   return (
     <main className="feature-page">
       <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
-      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place.</p></div></header>
+      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place. Automatically refreshes every five minutes; saved listings sync every six hours.</p></div></header>
 
       <section className="feature-section" aria-labelledby="live-jobs-heading">
         <h2 id="live-jobs-heading"><Search size={18}/> Live job search</h2>
