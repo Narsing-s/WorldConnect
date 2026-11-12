@@ -16,14 +16,23 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);\n  const [followerCount, setFollowerCount] = useState(0);\n  const [followingCount, setFollowingCount] = useState(0);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
     if (!supabase) { setError("Connect Supabase before editing your profile."); setLoading(false); return; }
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
-      const [profileResult, followersResult, followingResult] = await Promise.all([\n        supabase.from("wc_profiles").select("username,display_name,bio,avatar_url,country").eq("id", user.id).maybeSingle(),\n        supabase.from("wc_follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),\n        supabase.from("wc_follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id)\n      ]);\n      const { data, error: readError } = profileResult;\n      if (!followersResult.error) setFollowerCount(followersResult.count || 0);\n      if (!followingResult.error) setFollowingCount(followingResult.count || 0);
+      const [profileResult, followersResult, followingResult] = await Promise.all([
+        supabase.from("wc_profiles").select("username,display_name,bio,avatar_url,country").eq("id", user.id).maybeSingle(),
+        supabase.from("wc_follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),
+        supabase.from("wc_follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id)
+      ]);
+      const { data, error: readError } = profileResult;
+      if (!followersResult.error) setFollowerCount(followersResult.count || 0);
+      if (!followingResult.error) setFollowingCount(followingResult.count || 0);
       if (readError) setError(readError.message);
       else if (data) setProfile({ ...data, country: data.country || "" });
       else setError("Your profile is not ready yet. Run the WorldConnect SQL setup in Supabase.");
