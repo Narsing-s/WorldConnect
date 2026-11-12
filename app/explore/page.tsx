@@ -82,20 +82,23 @@ export default function ExplorePage() {
     const supabase = createClient();
     if (!supabase) return;
     const isFollowing = following.includes(memberId);
+    const previousFollowing = following;
+    const previousCounts = followCounts;
     setBusyId(memberId);
+    setFollowing(current => isFollowing ? current.filter(id => id !== memberId) : [...current, memberId]);
+    setFollowCounts(current => {
+      const currentMember = current[memberId] || { followers: 0, following: 0 };
+      return { ...current, [memberId]: { ...currentMember, followers: Math.max(0, currentMember.followers + (isFollowing ? -1 : 1)) } };
+    });
     const result = isFollowing
       ? await supabase.from("wc_follows").delete().eq("follower_id", userId).eq("following_id", memberId)
       : await supabase.from("wc_follows").insert({ follower_id: userId, following_id: memberId });
     setBusyId("");
-    if (result.error) { setNotice("Could not update follow: " + result.error.message); return; }
-    setFollowing(current => isFollowing ? current.filter(id => id !== memberId) : [...current, memberId]);
-    setFollowCounts(current => {
-      const currentMember = current[memberId] || { followers: 0, following: 0 };
-      return {
-        ...current,
-        [memberId]: { ...currentMember, followers: Math.max(0, currentMember.followers + (isFollowing ? -1 : 1)) },
-      };
-    });
+    if (result.error) {
+      setFollowing(previousFollowing);
+      setFollowCounts(previousCounts);
+      setNotice("Could not update follow: " + result.error.message);
+    }
   }
 
   return (
