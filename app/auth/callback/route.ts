@@ -30,5 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=confirmation", url.origin));
   }
 
-  const next = url.searchParams.get("next");\n  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";\n  return NextResponse.redirect(new URL(destination, url.origin));
+  const next = url.searchParams.get("next");
+  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  return NextResponse.redirect(new URL(destination, url.origin));
 }
