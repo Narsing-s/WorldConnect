@@ -18,6 +18,7 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 - Job-board directory with direct links to major India and international employment sites
 - Search filters for source and location type; applications open on the original provider website
 - Search jobs by role, skills and location; apply on the original job provider website
+- Automatic six-hour sync into persistent Supabase job storage, duplicate-safe updates and stale-listing expiry
 - Share WorldConnect through LinkedIn, WhatsApp, Telegram, email and the device share sheet
 - In-app notifications for likes, comments, follows and messages
 - Share posts with the device share sheet, with clipboard fallback and direct links
