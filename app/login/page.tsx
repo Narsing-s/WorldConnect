@@ -39,7 +39,14 @@ export default function LoginPage() {
           },
         });
         if (authError) throw authError;
-        if (data.session) {\n          const { error: greetingError } = await supabase.functions.invoke("send-welcome-email");\n          if (greetingError) setMessage("Your account is ready! Welcome to WorldConnect. (The welcome email could not be sent just now.)");\n          router.replace("/");\n          router.refresh();\n        } else {\n          setMessage("Your account was created, but email confirmation is still enabled in Supabase. Disable Confirm email in Supabase Authentication settings to allow immediate sign-in.");\n        }
+        if (data.session) {
+          const { error: greetingError } = await supabase.functions.invoke("send-welcome-email");
+          if (greetingError) setMessage("Your account is ready! Welcome to WorldConnect. (The welcome email could not be sent just now.)");
+          router.replace("/");
+          router.refresh();
+        } else {
+          setMessage("Your account was created, but email confirmation is still enabled in Supabase. Disable Confirm email in Supabase Authentication settings to allow immediate sign-in.");
+        }
       } else {
         const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (authError) throw authError;
