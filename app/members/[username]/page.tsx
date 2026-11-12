@@ -27,17 +27,18 @@ export default function MemberProfilePage(){
   let active=true;
   const client=createClient();
   if(!client){setNotice("WorldConnect is not connected to Supabase.");setLoading(false);return;}
+  const db = client as NonNullable<typeof client>;
   async function load(){
-   const {data:{user}}=await client.auth.getUser();
-   const {data:member,error}=await client.from("wc_profiles").select("id,username,display_name,bio,avatar_url,country,created_at").eq("username",username).maybeSingle();
+   const {data:{user}}=await db.auth.getUser();
+   const {data:member,error}=await db.from("wc_profiles").select("id,username,display_name,bio,avatar_url,country,created_at").eq("username",username).maybeSingle();
    if(!active)return;
    if(error||!member){setNotice(error?.message||"This member profile could not be found.");setLoading(false);return;}
    setProfile(member as Profile);setUserId(user?.id||"");
    const [followersResult,followingResult,postsResult,followResult]=await Promise.all([
-    client.from("wc_follows").select("follower_id",{count:"exact",head:true}).eq("following_id",member.id),
-    client.from("wc_follows").select("following_id",{count:"exact",head:true}).eq("follower_id",member.id),
-    client.from("wc_posts").select("id,body,image_url,video_url,created_at,wc_post_likes(user_id),wc_comments(id)").eq("author_id",member.id).order("created_at",{ascending:false}).limit(50),
-    user&&user.id!==member.id?client.from("wc_follows").select("follower_id").eq("follower_id",user.id).eq("following_id",member.id).maybeSingle():Promise.resolve({data:null,error:null})
+    db.from("wc_follows").select("follower_id",{count:"exact",head:true}).eq("following_id",member.id),
+    db.from("wc_follows").select("following_id",{count:"exact",head:true}).eq("follower_id",member.id),
+    db.from("wc_posts").select("id,body,image_url,video_url,created_at,wc_post_likes(user_id),wc_comments(id)").eq("author_id",member.id).order("created_at",{ascending:false}).limit(50),
+    user&&user.id!==member.id?db.from("wc_follows").select("follower_id").eq("follower_id",user.id).eq("following_id",member.id).maybeSingle():Promise.resolve({data:null,error:null})
    ]);
    if(!active)return;
    setFollowers(followersResult.count||0);setFollowingCount(followingResult.count||0);
