@@ -30,7 +30,7 @@ function databaseError(error: { code?: string; message?: string; hint?: string }
 export async function POST(req: NextRequest) {
   const expected = process.env.JOBS_SYNC_SECRET;
   const supplied =
-    req.headers.get("authorization")?.replace(/^Bearer\\s+/i, "") ||
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
     req.headers.get("x-jobs-sync-secret");
 
   if (
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   // Legacy Supabase JWT keys can be checked safely without returning the key.
   // Opaque sb_secret_* keys are validated by Supabase when the request is made.
   const claims = safeJwtClaims(key);
-  const urlRef = url.match(/^https:\/\/([a-z0-9-]+)\\.supabase\\.co\\/?$/i)?.[1];
+  const urlRef = url.match(/^https:\/\/([a-z0-9-]+)\.supabase\.co\\/?$/i)?.[1];
   if (claims?.role && claims.role !== "service_role") {
     return NextResponse.json(
       {
