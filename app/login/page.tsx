@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Globe2, LoaderCircle, Mail, Lock, UserRound } from "lucide-react";
@@ -9,6 +9,10 @@ import { createClient } from "@/lib/supabase";
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("login");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "signup") setMode("signup");
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -45,7 +49,7 @@ export default function LoginPage() {
           router.replace("/");
           router.refresh();
         } else {
-          setMessage("Your account was created, but email confirmation is still enabled in Supabase. Disable Confirm email in Supabase Authentication settings to allow immediate sign-in.");
+          setMessage("Your account was created. Email confirmation is currently required, so please check your inbox for the verification link before signing in. To allow immediate sign-in for future accounts, an administrator must turn off Confirm email in Supabase Dashboard → Authentication → Sign In / Providers → Email.");
         }
       } else {
         const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
