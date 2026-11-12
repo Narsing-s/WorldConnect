@@ -12,10 +12,28 @@ jobs:
           APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
           SYNC_SECRET: ${{ secrets.JOBS_SYNC_SECRET }}
         run: |
+          set -euo pipefail
           if [ -z "$APP_URL" ] || [ -z "$SYNC_SECRET" ]; then
             echo "::error::Set WORLDCONNECT_APP_URL and JOBS_SYNC_SECRET in repository Actions secrets."
             exit 1
           fi
-          curl --fail-with-body --silent --show-error --max-time 90 \
+          case "$APP_URL" in
+            https://*) ;;
+            *) echo "::error::WORLDCONNECT_APP_URL must be the HTTPS production URL of the WorldConnect app."; exit 1 ;;
+          esac
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_CODE="$(curl --silent --show-error --max-time 90 \
             -X POST "${APP_URL%/}/api/jobs/sync" \
-            -H "Authorization: Bearer $SYNC_SECRET" -H "Content-Type: application/json"
+            -H "Authorization: Bearer $SYNC_SECRET" \
+            -H "Content-Type: application/json" \
+            --output "$RESPONSE_FILE" --write-out "%{http_code}")" || {
+              echo "::error::Could not reach the WorldConnect job-sync endpoint. Check WORLDCONNECT_APP_URL and the deployment."
+              cat "$RESPONSE_FILE"
+              exit 1
+            }
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::WorldConnect job-sync endpoint returned HTTP $HTTP_CODE. Confirm WORLDCONNECT_APP_URL points to the deployed WorldConnect app (not another Vercel project) and that /api/jobs/sync is deployed."
+            sed -n '1,30p' "$RESPONSE_FILE"
+            exit 1
+          fi
+          cat "$RESPONSE_FILE"
