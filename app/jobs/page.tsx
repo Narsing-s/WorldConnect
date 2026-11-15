@@ -58,6 +58,10 @@ export default function JobsPage() {
   const [source, setSource] = useState("All sources");
   const [region, setRegion] = useState("All regions");
   const [category, setCategory] = useState("All categories");
+  const [postedWithin, setPostedWithin] = useState("Any time");
+  const [experience, setExperience] = useState("Any experience");
+  const [minSalary, setMinSalary] = useState("");
+  const [maxSalary, setMaxSalary] = useState("");
 
   const loadJobs = useCallback(async (searchTerm: string, searchLocation: string) => {
     setLoading(true); setNotice("");
@@ -83,11 +87,31 @@ export default function JobsPage() {
   }, [loadJobs, query, location]);
   function searchJobs(event?: FormEvent) { event?.preventDefault(); void loadJobs(query, location); }
 
-  const visibleJobs = useMemo(() => jobs.filter(job =>
-    (source === "All sources" || job.source === source) &&
-    (region === "All regions" || (region === "Remote" ? job.remote : job.location.toLowerCase().includes(region.toLowerCase()) || job.location.toLowerCase().includes("worldwide"))) &&
-    (category === "All categories" || getJobCategory(job) === category)
-  ), [jobs, source, region, category]);
+  const visibleJobs = useMemo(() => jobs.filter(job => {
+    const now = Date.now();
+    const posted = job.postedAt ? Date.parse(job.postedAt) : NaN;
+    const ageDays = Number.isFinite(posted) ? (now - posted) / 86400000 : Infinity;
+    const text = [job.title, job.description, ...(job.tags || [])].join(" ").toLowerCase();
+    const expMatch = text.match(/(?:\\b|^)(fresher|entry[- ]level|intern(?:ship)?|\\d+\\s*[-–to]+\\s*\\d+\\s*years?|\\d+\\+?\\s*years?)(?:\\b|$)/i);
+    const expText = (expMatch?.[0] || "").toLowerCase();
+    const salaryNumbers = (job.salary || "").replace(/,/g, "").match(/\\d+(?:\\.\\d+)?/g)?.map(Number) || [];
+    const salaryValue = salaryNumbers.length ? Math.max(...salaryNumbers) : NaN;
+    const min = minSalary.trim() ? Number(minSalary) : null;
+    const max = maxSalary.trim() ? Number(maxSalary) : null;
+    const expOk = experience === "Any experience" ||
+      (experience === "Fresher / Internship" ? /fresher|entry[- ]level|intern/.test(expText) :
+       experience === "0–2 years" ? /fresher|entry[- ]level|intern|0\\s*[-–to]+\\s*[12]|1\\s*[-–to]+\\s*2|[01]\\+?\\s*years?/.test(expText) :
+       experience === "2–5 years" ? /2\\s*[-–to]+\\s*[345]|3\\s*[-–to]+\\s*5|[234]\\+?\\s*years?/.test(expText) :
+       experience === "5–10 years" ? /[5-9]\\s*[-–to]+\\s*10|[5-9]\\+?\\s*years?|10\\+?\\s*years?/.test(expText) :
+       /10\\+?\\s*years?/.test(expText));
+    return (source === "All sources" || job.source === source) &&
+      (region === "All regions" || (region === "Remote" ? job.remote : region === "India" ? /india/i.test(job.location) : region === "United States" ? /united states|\\busa\\b|\\bus\\b/i.test(job.location) : region === "Europe" ? /europe|uk|germany|france|netherlands|ireland/i.test(job.location) : job.location.toLowerCase().includes(region.toLowerCase()))) &&
+      (category === "All categories" || getJobCategory(job) === category) &&
+      (postedWithin === "Any time" || (Number.isFinite(posted) && ageDays <= (postedWithin === "24 hours" ? 1 : postedWithin === "7 days" ? 7 : 30))) &&
+      expOk &&
+      (min === null || (Number.isFinite(salaryValue) && salaryValue >= min)) &&
+      (max === null || (Number.isFinite(salaryValue) && salaryValue <= max));
+  }), [jobs, source, region, category, postedWithin, experience, minSalary, maxSalary]);
   const sources = useMemo(() => ["All sources", ...Array.from(new Set(jobs.map(job => job.source))).sort()], [jobs]);
 
   return (
@@ -103,9 +127,15 @@ export default function JobsPage() {
           <button className="feature-primary" disabled={loading}><Search size={16}/> Search jobs</button>
         </form>
         <div className="feature-toolbar"><strong>{visibleJobs.length} matching jobs</strong><button className="feature-secondary" onClick={()=>searchJobs()} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
-        <div className="jobs-filters">
+        <div className="jobs-filters jobs-advanced-filters">
+          <label>Category<select value={category} onChange={event=>setCategory(event.target.value)}>{["All categories","IT & Software","Civil & Construction","Mechanical","Electrical","Electronics & Telecom","Healthcare & Pharma","Finance & Accounting","HR & Administration","Sales & Marketing","Education","Operations & Logistics","Other Non-IT"].map(item=><option key={item}>{item}</option>)}</select></label>
+          <label>Location type<select value={region} onChange={event=>setRegion(event.target.value)}><option>All regions</option><option>India</option><option>Remote</option><option>United States</option><option>Europe</option></select></label>
+          <label>Date posted<select value={postedWithin} onChange={event=>setPostedWithin(event.target.value)}><option>Any time</option><option>24 hours</option><option>7 days</option><option>30 days</option></select></label>
+          <label>Experience<select value={experience} onChange={event=>setExperience(event.target.value)}><option>Any experience</option><option>Fresher / Internship</option><option>0–2 years</option><option>2–5 years</option><option>5–10 years</option><option>10+ years</option></select></label>
           <label>Source<select value={source} onChange={event=>setSource(event.target.value)}>{sources.map(item=><option key={item}>{item}</option>)}</select></label>
-          <label>Location type<select value={region} onChange={event=>setRegion(event.target.value)}><option>All regions</option><option>Remote</option><option>India</option><option>United States</option><option>Europe</option></select></label>
+          <label>Minimum salary (number)<input type="number" min="0" value={minSalary} onChange={event=>setMinSalary(event.target.value)} placeholder="e.g. 500000"/></label>
+          <label>Maximum salary (number)<input type="number" min="0" value={maxSalary} onChange={event=>setMaxSalary(event.target.value)} placeholder="e.g. 1500000"/></label>
+          <button type="button" className="feature-secondary" onClick={()=>{setCategory("All categories");setRegion("All regions");setPostedWithin("Any time");setExperience("Any experience");setSource("All sources");setMinSalary("");setMaxSalary("");}}>Clear filters</button>
         </div>
         {notice && <p className="feature-notice" role="status">{notice}</p>}
         {loading && <p className="feature-notice">Searching connected job feeds…</p>}
