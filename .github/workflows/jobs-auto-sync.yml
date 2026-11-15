@@ -69,7 +69,7 @@ jobs:
               " | " + ((.location // "") | gsub("[|\\r\\n]"; " ")) +
               " | " + ((.source // "") | gsub("[|\\r\\n]"; " ")) +
               " | " + ((.postedAt // "N/A") | gsub("[|\\r\\n]"; " ")) +
-              " | [Apply](" + (.url // "") + ") |' "$RESPONSE_FILE"
+              " | [Apply](" + ((.url // "") | gsub("[|\\r\\n]"; "")) + ") |"' "$RESPONSE_FILE"
             echo ""
             echo "### Provider warnings"
             jq -r '(.errors // [])[] | "- " + .' "$RESPONSE_FILE"
