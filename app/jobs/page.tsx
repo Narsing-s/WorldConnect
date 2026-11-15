@@ -11,6 +11,7 @@ type Board = { name: string; url: string; region: string; kind: string };
 
 const boards: Board[] = [
   { name: "Naukri", url: "https://www.naukri.com/", region: "India", kind: "All roles" },
+  { name: "JobsForce India", url: "https://jobsforceindia.com/", region: "India", kind: "IT & Non-IT" },
   { name: "LinkedIn Jobs", url: "https://www.linkedin.com/jobs/", region: "Global", kind: "Professional" },
   { name: "Indeed India", url: "https://in.indeed.com/", region: "India", kind: "All roles" },
   { name: "Foundit", url: "https://www.foundit.in/", region: "India", kind: "All roles" },
@@ -118,7 +119,7 @@ export default function JobsPage() {
           </article>)}
         </section>
         {!loading && visibleJobs.length===0 && <div className="empty-state"><BriefcaseBusiness size={24}/><strong>No jobs to show</strong><span>Change your search or filters, or open a job board below.</span></div>}
-        {lastUpdated && <p className="feature-notice">Last refreshed {new Date(lastUpdated).toLocaleTimeString()} · Live feeds: Remotive, Arbeitnow, Remote OK and Jobicy.</p>}
+        {lastUpdated && <p className="feature-notice">Last refreshed {new Date(lastUpdated).toLocaleTimeString()} · Live feeds: JobsForce India, Remotive, Arbeitnow, Remote OK and Jobicy.</p>}
         <p className="feature-notice">Listings are supplied by third parties. WorldConnect does not host vacancies; verify the employer, location and application details on the source website.</p>
       </section>
 
