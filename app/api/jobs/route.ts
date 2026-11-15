@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
               (j.remote && /remote/i.test(l)))
           );
         })
-        .slice(0, 100);
+        ;
 
       const { data: sync } = await db
         .from("wc_job_sync_runs")
