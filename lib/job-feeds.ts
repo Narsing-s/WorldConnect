@@ -19,14 +19,24 @@ const rs=await Promise.allSettled([
 fetch("https://remotive.com/api/remote-jobs?search="+encodeURIComponent(query),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)}),
 fetch("https://www.arbeitnow.com/api/job-board-api",{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)}),
 fetch("https://remoteok.com/api",{cache:"no-store",headers:{Accept:"application/json","User-Agent":"WorldConnectJobHub/1.0"},signal:AbortSignal.timeout(15000)}),
-fetch("https://jobicy.com/api/v2/remote-jobs?count=50"+(query?"&tag="+encodeURIComponent(query):""),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)})]);
-const [rem,arb,rok,jcy]=await Promise.all([
+fetch("https://jobicy.com/api/v2/remote-jobs?count=50"+(query?"&tag="+encodeURIComponent(query):""),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)}),
+fetch("https://jobsforceindia.com/api/public/v1/jobs?per_page=20&page=1"+(query?"&q="+encodeURIComponent(query):""),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)})]);
+const [rem,arb,rok,jcy,india]=await Promise.all([
 safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[0]),safeJson<{data?:Array<Record<string,unknown>>}>(rs[1]),
-safeJson<Array<Record<string,unknown>>>(rs[2]),safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[3])]);
+safeJson<Array<Record<string,unknown>>>(rs[2]),safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[3]),safeJson<{results?:Array<Record<string,unknown>>}>(rs[4])]);
 const jobs:Job[]=[],errors:string[]=[];
 for(const x of rem?.jobs||[]){const j:Job={id:"remotive-"+x.id,title:String(x.title||""),company:String(x.company_name||""),location:String(x.candidate_required_location||"Remote"),remote:true,description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.publication_date),source:"Remotive",tags:[String(x.category||""),String(x.job_type||"")].filter(Boolean),salary:String(x.salary||"")||null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of arb?.data||[]){const j:Job={id:"arbeitnow-"+(x.slug||x.id||x.url),title:String(x.title||""),company:String(x.company_name||""),location:String(x.location||(x.remote?"Remote":"Not specified")),remote:Boolean(x.remote),description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.created_at),source:"Arbeitnow",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of(rok||[]).filter(x=>x.position||x.title)){const j:Job={id:"remoteok-"+(x.id||x.url),title:String(x.position||x.title||""),company:String(x.company||""),location:String(x.location||"Remote"),remote:true,description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url||(x.slug?"https://remoteok.com/remote-jobs/"+x.slug:"")),postedAt:normalizePostedAt(x.date),source:"Remote OK",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:x.salary?String(x.salary):null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of jcy?.jobs||[]){const j:Job={id:"jobicy-"+(x.id||x.url),title:String(x.jobTitle||""),company:String(x.companyName||""),location:String(x.jobGeo||"Remote"),remote:true,description:stripHtml(x.jobDescription).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.pubDate),source:"Jobicy",tags:[String(x.jobIndustry||""),String(x.jobType||"")].filter(Boolean),salary:x.annualSalaryMin||x.annualSalaryMax?(String(x.salaryCurrency||"")+" "+String(x.annualSalaryMin||"")+"-"+String(x.annualSalaryMax||"")).trim():null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
-if(!rem)errors.push("Remotive feed is temporarily unavailable.");if(!arb)errors.push("Arbeitnow feed is temporarily unavailable.");if(!rok)errors.push("Remote OK feed is temporarily unavailable.");if(!jcy)errors.push("Jobicy feed is temporarily unavailable.");
+for(const x of india?.results||[]){
+ const loc=(x.location&&typeof x.location==="object"?x.location:{}) as Record<string,unknown>;
+ const hiring=(x.hiring&&typeof x.hiring==="object"?x.hiring:{}) as Record<string,unknown>;
+ const salary=(x.salary&&typeof x.salary==="object"?x.salary:{}) as Record<string,unknown>;
+ const exp=(x.experience&&typeof x.experience==="object"?x.experience:{}) as Record<string,unknown>;
+ const place=[loc.city,loc.state,loc.country||"India"].filter(Boolean).map(String).join(", ");
+ const j:Job={id:"jobsforceindia-"+String(x.id||x.url),title:String(x.title||""),company:String(hiring.display||hiring.employer||hiring.name||"Employer not specified"),location:place||"India",remote:Boolean(loc.remote)||String(x.work_mode||"").toLowerCase()==="remote",description:stripHtml(x.summary||"").slice(0,1200),url:safeUrl(x.apply_url||x.url),postedAt:normalizePostedAt(x.posted_date),source:"JobsForce India",tags:[String(x.category||""),String(x.job_type||""),String(exp.label||"")].filter(Boolean),salary:String(salary.label||"")||null};
+ if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);
+}
+if(!rem)errors.push("Remotive feed is temporarily unavailable.");if(!arb)errors.push("Arbeitnow feed is temporarily unavailable.");if(!rok)errors.push("Remote OK feed is temporarily unavailable.");if(!jcy)errors.push("Jobicy feed is temporarily unavailable.");if(!india)errors.push("JobsForce India feed is temporarily unavailable.");
 return{jobs:Array.from(new Map(jobs.map(j=>[j.url,j])).values()).sort((a,b)=>(Date.parse(b.postedAt||"")||0)-(Date.parse(a.postedAt||"")||0)).slice(0,250),errors};}
