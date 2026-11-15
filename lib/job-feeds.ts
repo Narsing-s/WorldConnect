@@ -26,6 +26,16 @@ safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[0]),safeJson<{data?:Array<Rec
 safeJson<Array<Record<string,unknown>>>(rs[2]),safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[3]),safeJson<{results?:Array<Record<string,unknown>>}>(rs[4])]);
 const jobs:Job[]=[],errors:string[]=[];
 let indiaRows=india?.results||[];
+let indiaItRows:Record<string,unknown>[]=[];
+let indiaItAvailable=true;
+try{
+ const itResponses=await Promise.allSettled(Array.from({length:10},(_,index)=>fetch("https://jobsforceindia.com/api/public/v1/jobs?"+new URLSearchParams({category:"IT",per_page:"20",page:String(index+1)}),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)})));
+ const itData=await Promise.all(itResponses.map(response=>safeJson<{results?:Array<Record<string,unknown>>}>(response)));
+ indiaItAvailable=itData.some(Boolean);
+ const itById=new Map<string,Record<string,unknown>>();
+ for(const result of itData)for(const row of result?.results||[])itById.set(String(row.id||row.url),row);
+ indiaItRows=Array.from(itById.values());
+}catch{indiaItAvailable=false;}
 try{
  const catalogResponse=await fetch("https://jobsforceindia.com/api/public/v1/catalog",{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(10000)});
  if(catalogResponse.ok){
@@ -44,7 +54,7 @@ for(const x of rem?.jobs||[]){const j:Job={id:"remotive-"+x.id,title:String(x.ti
 for(const x of arb?.data||[]){const j:Job={id:"arbeitnow-"+(x.slug||x.id||x.url),title:String(x.title||""),company:String(x.company_name||""),location:String(x.location||(x.remote?"Remote":"Not specified")),remote:Boolean(x.remote),description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.created_at),source:"Arbeitnow",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of(rok||[]).filter(x=>x.position||x.title)){const j:Job={id:"remoteok-"+(x.id||x.url),title:String(x.position||x.title||""),company:String(x.company||""),location:String(x.location||"Remote"),remote:true,description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url||(x.slug?"https://remoteok.com/remote-jobs/"+x.slug:"")),postedAt:normalizePostedAt(x.date),source:"Remote OK",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:x.salary?String(x.salary):null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of jcy?.jobs||[]){const j:Job={id:"jobicy-"+(x.id||x.url),title:String(x.jobTitle||""),company:String(x.companyName||""),location:String(x.jobGeo||"Remote"),remote:true,description:stripHtml(x.jobDescription).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.pubDate),source:"Jobicy",tags:[String(x.jobIndustry||""),String(x.jobType||"")].filter(Boolean),salary:x.annualSalaryMin||x.annualSalaryMax?(String(x.salaryCurrency||"")+" "+String(x.annualSalaryMin||"")+"-"+String(x.annualSalaryMax||"")).trim():null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
-for(const x of indiaRows){
+for(const x of [...indiaRows,...indiaItRows]){
  const loc=(x.location&&typeof x.location==="object"?x.location:{}) as Record<string,unknown>;
  const hiring=(x.hiring&&typeof x.hiring==="object"?x.hiring:{}) as Record<string,unknown>;
  const salary=(x.salary&&typeof x.salary==="object"?x.salary:{}) as Record<string,unknown>;
@@ -54,4 +64,7 @@ for(const x of indiaRows){
  if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);
 }
 if(!rem)errors.push("Remotive feed is temporarily unavailable.");if(!arb)errors.push("Arbeitnow feed is temporarily unavailable.");if(!rok)errors.push("Remote OK feed is temporarily unavailable.");if(!jcy)errors.push("Jobicy feed is temporarily unavailable.");if(!india)errors.push("JobsForce India feed is temporarily unavailable.");
-return{jobs:Array.from(new Map(jobs.map(j=>[j.url,j])).values()).sort((a,b)=>(Date.parse(b.postedAt||"")||0)-(Date.parse(a.postedAt||"")||0)).slice(0,250),errors};}
+const unique=Array.from(new Map(jobs.map(j=>[j.url,j])).values()).sort((a,b)=>(Date.parse(b.postedAt||"")||0)-(Date.parse(a.postedAt||"")||0));
+const indiaIT=unique.filter(job=>job.source==="JobsForce India"&&/\\bit\\b|software|developer|engineer|programmer|technology|data|cloud|devops|qa|testing|network|security/i.test([job.title,...job.tags,job.description].join(" ")));
+const otherJobs=unique.filter(job=>!indiaIT.includes(job));
+return{jobs:[...indiaIT.slice(0,100),...otherJobs].slice(0,250),errors};}
