@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { jobs, errors } = await collectJobs();
-    if (!jobs.length && errors.length === 4) {
+    if (!jobs.length && errors.length === 5) {
       throw new Error("All job providers failed; existing jobs were retained.");
     }
 
