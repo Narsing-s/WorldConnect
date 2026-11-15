@@ -27,15 +27,13 @@ safeJson<Array<Record<string,unknown>>>(rs[2]),safeJson<{jobs?:Array<Record<stri
 const jobs:Job[]=[],errors:string[]=[];
 let indiaRows=india?.results||[];
 let indiaItRows:Record<string,unknown>[]=[];
-let indiaItAvailable=true;
 try{
  const itResponses=await Promise.allSettled(Array.from({length:10},(_,index)=>fetch("https://jobsforceindia.com/api/public/v1/jobs?"+new URLSearchParams({category:"IT",per_page:"20",page:String(index+1)}),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)})));
  const itData=await Promise.all(itResponses.map(response=>safeJson<{results?:Array<Record<string,unknown>>}>(response)));
- indiaItAvailable=itData.some(Boolean);
  const itById=new Map<string,Record<string,unknown>>();
  for(const result of itData)for(const row of result?.results||[])itById.set(String(row.id||row.url),row);
  indiaItRows=Array.from(itById.values());
-}catch{indiaItAvailable=false;}
+}catch{/* Keep the general India feed if the IT-specific request fails. */}
 try{
  const catalogResponse=await fetch("https://jobsforceindia.com/api/public/v1/catalog",{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(10000)});
  if(catalogResponse.ok){
