@@ -19,12 +19,23 @@ function safeJwtClaims(key: string): { role?: string; ref?: string } | null {
   }
 }
 
-function databaseError(error: { code?: string; message?: string; hint?: string }) {
+function databaseError(error: { code?: string; message?: string; details?: string; hint?: string }) {
   return {
     code: error.code ?? "UNKNOWN",
     message: error.message ?? "Unknown database error",
+    details: error.details ?? null,
     hint: error.hint ?? null,
   };
+}
+
+class JobSyncDatabaseError extends Error {
+  constructor(
+    public operation: string,
+    public diagnostic: ReturnType<typeof databaseError>,
+  ) {
+    super(diagnostic.message);
+    this.name = "JobSyncDatabaseError";
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -130,7 +141,12 @@ export async function POST(req: NextRequest) {
       const { error } = await db
         .from("wc_jobs")
         .upsert(rows.slice(i, i + 100), { onConflict: "external_id" });
-      if (error) throw new Error(error.message);
+      if (error) {
+        throw new JobSyncDatabaseError(
+          `upsert wc_jobs batch starting at row ${i}`,
+          databaseError(error),
+        );
+      }
       imported += Math.min(100, rows.length - i);
     }
 
@@ -142,7 +158,9 @@ export async function POST(req: NextRequest) {
         "last_seen_at",
         new Date(Date.now() - 30 * 86400000).toISOString(),
       );
-    if (expiryError) throw new Error(expiryError.message);
+    if (expiryError) {
+      throw new JobSyncDatabaseError("expire old wc_jobs records", databaseError(expiryError));
+    }
 
     const completedAt = new Date().toISOString();
     const { error: runError } = await db
@@ -154,20 +172,35 @@ export async function POST(req: NextRequest) {
         provider_errors: errors,
       })
       .eq("id", run.data.id);
-    if (runError) throw new Error(runError.message);
+    if (runError) {
+      throw new JobSyncDatabaseError("mark wc_job_sync_runs completed", databaseError(runError));
+    }
 
     return NextResponse.json({ success: true, imported, errors, completedAt });
   } catch (caught) {
     const message =
       caught instanceof Error ? caught.message : "Job sync failed.";
-    await db
+    const diagnostic =
+      caught instanceof JobSyncDatabaseError
+        ? { operation: caught.operation, ...caught.diagnostic }
+        : { operation: "collect job feeds or process sync", code: "APPLICATION_ERROR", message };
+    const failureUpdate = await db
       .from("wc_job_sync_runs")
       .update({
         status: "failed",
         completed_at: new Date().toISOString(),
-        error: message,
+        error: `${diagnostic.operation}: ${message}`,
       })
       .eq("id", run.data.id);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      {
+        error: message,
+        diagnostic,
+        failureStatusUpdateError: failureUpdate.error
+          ? databaseError(failureUpdate.error)
+          : null,
+      },
+      { status: 502 },
+    );
   }
 }
