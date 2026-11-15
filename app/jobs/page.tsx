@@ -95,7 +95,9 @@ export default function JobsPage() {
     const expMatch = text.match(/(?:\\b|^)(fresher|entry[- ]level|intern(?:ship)?|\\d+\\s*[-–to]+\\s*\\d+\\s*years?|\\d+\\+?\\s*years?)(?:\\b|$)/i);
     const expText = (expMatch?.[0] || "").toLowerCase();
     const salaryNumbers = (job.salary || "").replace(/,/g, "").match(/\\d+(?:\\.\\d+)?/g)?.map(Number) || [];
-    const salaryValue = salaryNumbers.length ? Math.max(...salaryNumbers) : NaN;
+    const salaryText = (job.salary || "").toLowerCase();
+    const salaryMultiplier = /lpa|lakhs?|\\bl\\b/.test(salaryText) ? 100000 : /\\bk\\b|thousand/.test(salaryText) ? 1000 : 1;
+    const salaryValue = salaryNumbers.length ? Math.max(...salaryNumbers) * salaryMultiplier : NaN;
     const min = minSalary.trim() ? Number(minSalary) : null;
     const max = maxSalary.trim() ? Number(maxSalary) : null;
     const expOk = experience === "Any experience" ||
