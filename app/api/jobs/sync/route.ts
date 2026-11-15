@@ -137,17 +137,61 @@ export async function POST(req: NextRequest) {
     }));
 
     let imported = 0;
+    let added = 0;
+    let updated = 0;
+    const jobResults: Array<{
+      title: string;
+      company: string;
+      location: string;
+      source: string;
+      url: string;
+      postedAt: string | null;
+      action: "added" | "updated";
+    }> = [];
+
     for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100);
+      const externalIds = batch.map((row) => row.external_id);
+      const existing = await db
+        .from("wc_jobs")
+        .select("external_id")
+        .in("external_id", externalIds);
+
+      if (existing.error) {
+        throw new JobSyncDatabaseError(
+          `check existing wc_jobs batch starting at row ${i}`,
+          databaseError(existing.error),
+        );
+      }
+
+      const existingIds = new Set(
+        (existing.data ?? []).map((row) => row.external_id),
+      );
       const { error } = await db
         .from("wc_jobs")
-        .upsert(rows.slice(i, i + 100), { onConflict: "external_id" });
+        .upsert(batch, { onConflict: "external_id" });
       if (error) {
         throw new JobSyncDatabaseError(
           `upsert wc_jobs batch starting at row ${i}`,
           databaseError(error),
         );
       }
-      imported += Math.min(100, rows.length - i);
+
+      for (const row of batch) {
+        const action = existingIds.has(row.external_id) ? "updated" : "added";
+        if (action === "added") added += 1;
+        else updated += 1;
+        jobResults.push({
+          title: row.title,
+          company: row.company,
+          location: row.location,
+          source: row.source,
+          url: row.application_url,
+          postedAt: row.posted_at,
+          action,
+        });
+      }
+      imported += batch.length;
     }
 
     const { error: expiryError } = await db
@@ -176,7 +220,15 @@ export async function POST(req: NextRequest) {
       throw new JobSyncDatabaseError("mark wc_job_sync_runs completed", databaseError(runError));
     }
 
-    return NextResponse.json({ success: true, imported, errors, completedAt });
+    return NextResponse.json({
+      success: true,
+      imported,
+      added,
+      updated,
+      jobs: jobResults,
+      errors,
+      completedAt,
+    });
   } catch (caught) {
     const message =
       caught instanceof Error ? caught.message : "Job sync failed.";
