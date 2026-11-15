@@ -40,6 +40,7 @@ export default function JobsPage() {
   const [lastUpdated, setLastUpdated] = useState("");
   const [source, setSource] = useState("All sources");
   const [region, setRegion] = useState("All regions");
+  const [category, setCategory] = useState("All categories");
 
   const loadJobs = useCallback(async (searchTerm: string, searchLocation: string) => {
     setLoading(true); setNotice("");
@@ -65,10 +66,27 @@ export default function JobsPage() {
   }, [loadJobs, query, location]);
   function searchJobs(event?: FormEvent) { event?.preventDefault(); void loadJobs(query, location); }
 
+  const getJobCategory = (job: Job) => {
+    const text = [job.title, job.company, job.description, ...(job.tags || [])].join(" ").toLowerCase();
+    if (/\b(mulesoft|software|developer|programmer|programming|frontend|front-end|backend|back-end|full stack|fullstack|devops|cloud engineer|data engineer|data analyst|it support|technical support|system administrator|network engineer|cyber security|cybersecurity|qa engineer|test engineer|web developer|mobile developer|database|java|python|javascript|react|node\.js|\.net|sap|oracle|technology|information technology|it engineer)\b/.test(text)) return "IT & Software";
+    if (/\b(civil|structural|site engineer|quantity surveyor|construction|architecture|architect|surveying|geotechnical)\b/.test(text)) return "Civil & Construction";
+    if (/\b(mechanical|hvac|automotive|automobile|production engineer|manufacturing engineer|maintenance engineer|tool design|cad engineer)\b/.test(text)) return "Mechanical";
+    if (/\b(electrical|power systems|electrical engineer|substation|plc|instrumentation|electrical maintenance)\b/.test(text)) return "Electrical";
+    if (/\b(electronics|embedded|vlsi|semiconductor|pcb|firmware|telecommunication|telecom)\b/.test(text)) return "Electronics & Telecom";
+    if (/\b(doctor|nurse|nursing|medical|healthcare|pharma|pharmacist|clinical|hospital|lab technician|therapist)\b/.test(text)) return "Healthcare & Pharma";
+    if (/\b(accountant|accounting|finance|financial|banking|auditor|tax|payroll|investment)\b/.test(text)) return "Finance & Accounting";
+    if (/\b(human resources|\bhr\b|recruiter|recruitment|talent acquisition|admin executive|administration)\b/.test(text)) return "HR & Administration";
+    if (/\b(sales|business development|marketing|digital marketing|seo|social media|brand manager|customer success)\b/.test(text)) return "Sales & Marketing";
+    if (/\b(teacher|teaching|faculty|professor|trainer|tutor|education|academic)\b/.test(text)) return "Education";
+    if (/\b(logistics|supply chain|warehouse|procurement|operations|delivery|transport|inventory)\b/.test(text)) return "Operations & Logistics";
+    return "Other Non-IT";
+  };
+
   const visibleJobs = useMemo(() => jobs.filter(job =>
     (source === "All sources" || job.source === source) &&
-    (region === "All regions" || (region === "Remote" ? job.remote : job.location.toLowerCase().includes(region.toLowerCase()) || job.location.toLowerCase().includes("worldwide")))
-  ), [jobs, source, region]);
+    (region === "All regions" || (region === "Remote" ? job.remote : job.location.toLowerCase().includes(region.toLowerCase()) || job.location.toLowerCase().includes("worldwide"))) &&
+    (category === "All categories" || getJobCategory(job) === category)
+  ), [jobs, source, region, category]);
   const sources = useMemo(() => ["All sources", ...Array.from(new Set(jobs.map(job => job.source))).sort()], [jobs]);
 
   return (
@@ -92,7 +110,7 @@ export default function JobsPage() {
         {loading && <p className="feature-notice">Searching connected job feeds…</p>}
         <section className="opportunity-list">
           {visibleJobs.map(job=><article className="opportunity-card" key={job.id}>
-            <div className="opportunity-meta"><span>{job.source}</span><time>{job.postedAt ? new Date(job.postedAt).toLocaleDateString() : "Date not provided"}</time></div>
+            <div className="opportunity-meta"><span>{job.source}</span><span className="job-category-label">{getJobCategory(job)}</span><time>{job.postedAt ? new Date(job.postedAt).toLocaleDateString() : "Date not provided"}</time></div>
             <h2>{job.title}</h2><strong>{job.company}</strong>
             <p>{job.description || "Open the original listing to view the complete job description."}</p>
             <div className="opportunity-footer"><span><MapPin size={14}/> {job.location}{job.remote ? " · Remote" : ""}</span>{job.salary && <span>{job.salary}</span>}<a href={job.url} target="_blank" rel="noopener noreferrer">View &amp; apply <ExternalLink size={14}/></a></div>
