@@ -25,11 +25,26 @@ const [rem,arb,rok,jcy,india]=await Promise.all([
 safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[0]),safeJson<{data?:Array<Record<string,unknown>>}>(rs[1]),
 safeJson<Array<Record<string,unknown>>>(rs[2]),safeJson<{jobs?:Array<Record<string,unknown>>}>(rs[3]),safeJson<{results?:Array<Record<string,unknown>>}>(rs[4])]);
 const jobs:Job[]=[],errors:string[]=[];
+let indiaRows=india?.results||[];
+try{
+ const catalogResponse=await fetch("https://jobsforceindia.com/api/public/v1/catalog",{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+ if(catalogResponse.ok){
+  const catalog=await catalogResponse.json() as {categories?:Array<{name?:string}>};
+  const categories=(catalog.categories||[]).map(item=>String(item.name||"")).filter(Boolean).slice(0,20);
+  const categoryResponses=await Promise.allSettled(categories.map(category=>fetch("https://jobsforceindia.com/api/public/v1/jobs?"+new URLSearchParams({category,per_page:"20",page:"1",...(query?{q:query}:{})}),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)})));
+  const categoryData=await Promise.all(categoryResponses.map(response=>safeJson<{results?:Array<Record<string,unknown>>}>(response)));
+  const byId=new Map<string,Record<string,unknown>>();
+  for(const row of indiaRows)byId.set(String(row.id||row.url),row);
+  for(const result of categoryData)for(const row of result?.results||[])byId.set(String(row.id||row.url),row);
+  indiaRows=Array.from(byId.values());
+ }
+}catch{/* Keep the general India feed if category discovery is unavailable. */}
+
 for(const x of rem?.jobs||[]){const j:Job={id:"remotive-"+x.id,title:String(x.title||""),company:String(x.company_name||""),location:String(x.candidate_required_location||"Remote"),remote:true,description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.publication_date),source:"Remotive",tags:[String(x.category||""),String(x.job_type||"")].filter(Boolean),salary:String(x.salary||"")||null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of arb?.data||[]){const j:Job={id:"arbeitnow-"+(x.slug||x.id||x.url),title:String(x.title||""),company:String(x.company_name||""),location:String(x.location||(x.remote?"Remote":"Not specified")),remote:Boolean(x.remote),description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.created_at),source:"Arbeitnow",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of(rok||[]).filter(x=>x.position||x.title)){const j:Job={id:"remoteok-"+(x.id||x.url),title:String(x.position||x.title||""),company:String(x.company||""),location:String(x.location||"Remote"),remote:true,description:stripHtml(x.description).slice(0,1200),url:safeUrl(x.url||(x.slug?"https://remoteok.com/remote-jobs/"+x.slug:"")),postedAt:normalizePostedAt(x.date),source:"Remote OK",tags:Array.isArray(x.tags)?x.tags.map(String):[],salary:x.salary?String(x.salary):null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
 for(const x of jcy?.jobs||[]){const j:Job={id:"jobicy-"+(x.id||x.url),title:String(x.jobTitle||""),company:String(x.companyName||""),location:String(x.jobGeo||"Remote"),remote:true,description:stripHtml(x.jobDescription).slice(0,1200),url:safeUrl(x.url),postedAt:normalizePostedAt(x.pubDate),source:"Jobicy",tags:[String(x.jobIndustry||""),String(x.jobType||"")].filter(Boolean),salary:x.annualSalaryMin||x.annualSalaryMax?(String(x.salaryCurrency||"")+" "+String(x.annualSalaryMin||"")+"-"+String(x.annualSalaryMax||"")).trim():null};if(j.url&&matches(j,query.toLowerCase(),location.toLowerCase()))jobs.push(j);}
-for(const x of india?.results||[]){
+for(const x of indiaRows){
  const loc=(x.location&&typeof x.location==="object"?x.location:{}) as Record<string,unknown>;
  const hiring=(x.hiring&&typeof x.hiring==="object"?x.hiring:{}) as Record<string,unknown>;
  const salary=(x.salary&&typeof x.salary==="object"?x.salary:{}) as Record<string,unknown>;
