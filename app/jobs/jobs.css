@@ -4,3 +4,5 @@
 .jobs-advanced-filters select,.jobs-advanced-filters input{box-sizing:border-box;width:100%;min-width:0;padding:9px 11px;border:1px solid #e1e9e3;border-radius:9px;background:#fff;color:#33443a;font:inherit}
 .jobs-advanced-filters button{min-height:36px;justify-self:start}
 @media(max-width:520px){.jobs-advanced-filters{grid-template-columns:1fr 1fr}.jobs-advanced-filters label{width:100%}.jobs-advanced-filters button{grid-column:1/-1}}
+
+.jobs-mode-options{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #e1e9e3;border-radius:12px;padding:12px 14px}.jobs-mode-options legend{padding:0 5px;color:#728078;font-size:12px;font-weight:700}.jobs-mode-options label{display:flex;align-items:center;gap:7px;color:#33443a;font-size:13px}.jobs-mode-options input{accent-color:#16845d}.job-match-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:9px 0 12px;padding:9px 11px;border:1px solid #d9eee2;border-radius:10px;background:#f2faf5}.job-match-summary strong{color:#16734d;font-size:12px}.job-match-summary span{color:#607468;font-size:11px}
