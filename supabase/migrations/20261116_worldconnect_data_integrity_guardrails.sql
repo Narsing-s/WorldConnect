@@ -21,7 +21,7 @@ as $$
     ),
     true
   )
-  from unnest(values_to_check) as item;
+  from unnest(values_to_check) as entries(item);
 $$;
 
 alter table public.wc_candidate_preferences
