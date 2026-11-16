@@ -1,148 +1,107 @@
 # WorldConnect — Advanced Upgrade Roadmap
 
-**Product direction:** an AI-assisted professional network that combines a reliable social community, a verified job marketplace, and career-development tools.
+**Product direction:** an AI-assisted professional network combining a reliable social community, a global job marketplace, and career-development tools.
 
-This roadmap is additive. Keep existing routes, data, user content, and working flows; do not create duplicate tabs or replace current features without a migration and explicit product reason.
+This roadmap is additive. Preserve existing routes, database records, member content, and working flows. Do not create duplicate navigation tabs or replace current features without a migration and a clear product reason.
 
-## Implementation status — feature/job-application-tracker
+## Current implementation on main
 
-The first additive job-seeker slice is implemented on the `feature/job-application-tracker` branch:
-
-- `/jobs` now offers a save-to-tracker action and a link to the personal tracker.
-- `/jobs/tracker` displays the signed-in member's saved jobs and application records.
-- Members can update status (Saved, Applied, Interview, Offer, Rejected, Withdrawn), private notes, applied date, interview date and follow-up date, or remove a record.
-- `supabase/migrations/20261116_job_application_tracker.sql` creates the table, indexes, trigger and owner-only RLS policies.
-- The migration is additive and must be applied after `supabase/jobs-auto-sync.sql`. No existing member content or job rows are deleted.
-- `/jobs/preferences` stores private target roles, skills, preferred locations and work modes in `wc_candidate_preferences`.
-- `/jobs` calculates transparent match scores in the browser and lists the matched preference terms; it does not send private profile data to an external AI service.
-- `supabase/migrations/20261117_candidate_job_preferences.sql` adds owner-only RLS policies and must be applied after the job tracker migration.
-
-This branch still requires a successful GitHub Actions build and a Supabase migration/application smoke test before production merge. External AI resume analysis, recruiter, event, analytics and broader security upgrades remain future phases; they are not claimed as implemented.
-
-## 1. Current product baseline
-
-The repository currently describes these capabilities:
-
-- Authentication, password recovery, member profiles, and profile photo upload.
-- Persistent posts, likes, comments, follows, saved posts, and private conversations.
+The repository already includes:
+- Authentication, member profiles, password recovery, and profile photo upload.
+- Persistent posts, likes, comments, follows, saved posts, notifications, and private conversations.
 - Communities and a community opportunity board.
-- External job search across four public feeds, a job-board directory, and a six-hour sync workflow.
-- In-app notifications, reporting, sharing, and responsive navigation.
+- External job discovery, automatic job synchronization, saved applications, and a private application tracker.
+- Private candidate preferences with explainable, browser-side job matching.
+- Professional portfolio entries for skills, projects, certifications, and experience.
+- Additive Supabase migrations for data integrity and notification/query hardening.
 
-**First release gate:** prove that every social action survives refresh and is correctly isolated by Supabase Row Level Security (RLS). Complete the automatic job-sync production credential check before adding more job features.
+These features are implemented in source; production readiness still depends on applying the matching SQL scripts to the correct Supabase project and passing CI plus live smoke tests.
 
-## 2. Priority roadmap
+## Phase 1 — Production readiness
 
-### P0 — Reliability, security, and observability
+### Automated repository checks
+- Run ESLint on every pull request and push to main.
+- Run a dependency-free platform verifier for critical migration files, owner-only RLS invariants, notification update grants, and server-only service-role configuration.
+- Run the Next.js production build after the checks above.
+- Keep checks additive; do not seed demo users, posts, or fake job listings.
 
-- Verify every table has RLS enabled and policies for the intended owner/member roles.
-- Audit grants separately from RLS policies; never grant browser roles write access to server-owned job-sync tables.
-- Verify Vercel Production uses the matching Supabase project URL and server-only service-role credential.
-- Add structured, secret-safe API errors, request correlation IDs, and job-sync run diagnostics.
-- Make job ingestion idempotent; preserve existing listings when a provider fails; expire listings only after a successful provider refresh policy.
-- Add pagination, input validation, rate limits, and safe error boundaries.
-- Add automated tests for signup, posts, likes, comments, follows, saved posts, messages, job search, and job sync.
+### Supabase migration order
 
-**Acceptance:** no permission-denied errors in expected flows; unauthorized users cannot mutate another member's data; sync failures are diagnosable without exposing credentials; no content disappears after refresh.
+For a new Supabase project, apply:
+1. `supabase/schema.sql`
+2. `supabase/jobs-auto-sync.sql`
+3. `supabase/migrations/20261116_job_application_tracker.sql`
+4. `supabase/migrations/20261117_candidate_job_preferences.sql`
+5. `supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql`
+6. `supabase/migrations/20261118_platform_hardening.sql`
+7. `supabase/migrations/20261119_professional_portfolio.sql`
 
-### P1 — Complete the job-seeker experience
+For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
-- Saved jobs and a personal application tracker: Saved → Applied → Interview → Offer / Rejected.
-- Private candidate preferences and explainable job-match scoring are implemented on the feature branch; apply the candidate preferences migration before using them.
-- Application notes, follow-up dates, interview schedule, and status history.
-- Filters for keyword, skills, location, remote/hybrid/on-site, source, date, and employment type where source data supports them.
-- Duplicate detection across providers using normalized company/title/location/application URL.
-- Listing freshness labels, source attribution, and clear expired-job states.
-- Candidate profile completeness indicator and resume/portfolio links.
+### Production deployment checklist
 
-**Acceptance:** application records are private to their owner; filters are shareable; duplicate jobs do not create duplicate application targets.
+- Confirm Vercel Production points to the intended Supabase project.
+- Configure `NEXT_PUBLIC_SUPABASE_URL` and the publishable/anon key as public client configuration only.
+- Configure `SUPABASE_SERVICE_ROLE_KEY` only as a server-side Vercel environment variable; never prefix it with `NEXT_PUBLIC_`.
+- Configure `JOBS_SYNC_SECRET` in Vercel and the matching GitHub Actions secret, plus `WORLDCONNECT_APP_URL`.
+- Run one manual job-sync workflow and confirm the API returns success and a completed sync-run record is written.
+- Verify signed-out users cannot read private applications or preferences.
+- Verify one member cannot read or update another member's applications, preferences, or messages.
+- Verify notification recipients can acknowledge notifications but cannot rewrite notification identity or content.
+- Test signup, login, password recovery, profile updates, posts, likes, comments, follows, saved posts, messaging, communities, jobs, tracker, and portfolio on the deployed URL.
+- Check Vercel and GitHub Actions logs for errors without exposing secrets or personal data.
 
-### P2 — AI career assistant
+### Acceptance criteria
 
-- Resume parser and structured profile extraction with user approval before saving.
-- Job-to-profile matching with an explainable match score and matched/missing skills.
+- Lint, platform verification, and production build pass in GitHub Actions.
+- RLS and grants are both least-privilege; neither is treated as a substitute for the other.
+- Job-sync provider failures do not erase previously imported listings.
+- Private candidate and application data is never exposed to anonymous users.
+- Existing member content and IDs remain intact.
+- All key flows have loading, empty, success, and failure states.
+
+## Phase 2 — AI career assistant
+
+- Resume parsing into a draft profile, with explicit user approval before saving.
+- Explainable job-to-profile matching and missing-skill analysis.
 - Resume suggestions tailored to a selected job description; never fabricate experience.
-- Interview practice by role and seniority, with feedback and model-generated follow-up questions.
-- Skill-gap analysis and learning paths linked to the user's target roles.
+- Interview practice by role and seniority, with follow-up questions and feedback.
+- Skill-gap analysis and learning paths linked to target roles.
 
-**Acceptance:** AI output is clearly labeled as suggestions; users approve profile changes; private resumes are never public by default; matching does not imply guaranteed hiring.
+**Privacy requirements:** resumes are private by default; never send a resume to an external model without clear user action and disclosure; do not retain unnecessary raw resume text; label generated content as suggestions; never imply guaranteed hiring.
 
-### P3 — Recruiter and employer workspace
+## Phase 3 — Recruiter and employer workspace
 
-- Separate recruiter/company roles and organization profiles.
-- Employer verification workflow and verified job-posting status.
+- Organization profiles and separate recruiter/company roles.
+- Employer verification with an auditable review process.
 - Job creation, editing, closing, and applicant pipeline.
-- Candidate search only with explicit profile visibility/consent.
+- Candidate search only where the member has explicitly allowed visibility.
 - Shortlisting, interview invitations, and recruiter-to-candidate messaging.
-- Audit trail for recruiter actions and job edits.
 
-**Acceptance:** only authorized organization members manage that organization's jobs and applicants; candidates control profile visibility.
+## Phase 4 — Professional growth and community
 
-### P4 — Community and professional growth
+- Events, webinars, mentorship, and referral requests.
+- Skill endorsements with anti-spam controls.
+- Topic discovery and user-controlled feed recommendations.
+- Community learning paths and professional sessions.
 
-- Skill endorsements with anti-spam limits.
-- Events, webinars, and professional groups.
-- Referral requests and referral tracking.
-- Company reviews with moderation, evidence/reporting flows, and anti-defamation safeguards.
-- Trending and personalized feeds with user controls.
-- Post bookmarks, reposts, and topic tags if not already present.
+Keep these capabilities inside existing Jobs, Profile, Messages, and Communities areas rather than adding a top-level tab for every feature.
 
-**Acceptance:** each feature has one clear home in the existing navigation; no duplicate Explore/Community destinations.
+## Phase 5 — Scale and operational excellence
 
-### P5 — Scale and production readiness
+- Durable background queues, retry/backoff, and dead-letter handling.
+- Provider health dashboard and sync diagnostics.
+- Query profiling, pagination, and load testing.
+- File validation, private storage buckets, and signed URLs.
+- Accessibility, mobile performance, and PWA improvements.
+- Privacy policy, terms, account export/deletion, retention rules, and abuse response.
 
-- Background job queue for feed ingestion, notifications, and AI tasks.
-- Retry/backoff, provider health dashboard, and dead-letter handling.
-- Database indexes and query profiling for feed, jobs, search, and notifications.
-- Image/file validation, size limits, private storage buckets, and signed URLs.
-- Accessibility, keyboard navigation, mobile performance, and loading/empty/error states.
-- Privacy policy, terms, account deletion/export, retention rules, and abuse response process.
-
-**Acceptance:** load tests and security checks pass; slow provider APIs do not block the main app; user data lifecycle is documented.
-
-## 3. Navigation principles
-
-Keep the current primary destinations. Add features inside the relevant existing area:
-
-- **Jobs:** job discovery, saved jobs, application tracker.
-- **Profile:** portfolio, resume, skills, visibility controls.
-- **Messages:** conversations and interview communication.
-- **Communities:** groups, events, referrals, and learning.
-- **Notifications:** social, application, and recruiter updates with filters.
-- **Admin-only area:** moderation, employer verification, ingestion health, and analytics.
-
-Do not add a separate top-level tab for every sub-feature.
-
-## 4. Suggested database additions
-
-Create migrations only after checking the live schema and existing tables to avoid duplicates.
-
-- `wc_saved_jobs`: member_id, job_id, created_at; unique member/job pair.
-- `wc_job_applications`: member_id, job_id, status, applied_at, follow_up_at, notes, created_at, updated_at.
-- `wc_job_application_events`: application_id, actor_id, event_type, payload, created_at.
-- `wc_companies`: name, slug, website, verification_status, created_at.
-- `wc_company_members`: company_id, member_id, role, created_at.
-- `wc_candidate_preferences`: member_id, target_titles, skills, locations, work_modes, updated_at.
-- `wc_ai_activity`: member_id, task_type, status, created_at, metadata; never store raw secrets or unnecessary resume contents.
-
-Use foreign keys, unique constraints, indexes, RLS, and least-privilege grants. Keep resumes and private application notes in private storage/data access paths.
-
-## 5. Implementation sequence
-
-1. Audit current routes, components, schema, policies, and workflows; produce a keep/change/add matrix.
-2. Fix production job sync and verify it with a real workflow run.
-3. Add tests and resolve any existing persistence/RLS defects.
-4. Deliver P1 job-seeker features.
-5. Deliver P2 AI features behind explicit user actions and safe quotas.
-6. Add recruiter workflows only after role/organization authorization is designed.
-7. Complete performance, accessibility, privacy, and security checks.
-
-## 6. Non-negotiable engineering rules
+## Non-negotiable engineering rules
 
 - No demo users, seeded social posts, fake job listings, or fabricated company verification.
 - No service-role keys in browser bundles, public environment variables, logs, or API responses.
-- No broad RLS policies such as unrestricted authenticated writes.
+- No broad unrestricted authenticated-write RLS policies.
 - No breaking schema changes without a migration and backward-compatible rollout.
 - No duplicate UI sections or nonfunctional buttons.
-- Keep all existing member content and IDs intact.
+- Keep existing member content and IDs intact.
 - Every new feature needs loading, empty, success, and failure states plus tests.
