@@ -99,10 +99,7 @@ for select to authenticated using (
 );
 drop policy if exists "Members view own organization memberships" on public.wc_organization_members;
 create policy "Members view own organization memberships" on public.wc_organization_members
-for select to authenticated using (user_id = auth.uid() or exists (
-  select 1 from public.wc_organization_members mine
-  where mine.organization_id = organization_id and mine.user_id = auth.uid()
-));
+for select to authenticated using (user_id = auth.uid());
 drop policy if exists "Members view verification requests for their organizations" on public.wc_organization_verification_requests;
 create policy "Members view verification requests for their organizations" on public.wc_organization_verification_requests
 for select to authenticated using (exists (
@@ -119,7 +116,7 @@ drop policy if exists "Organization members create employer jobs" on public.wc_e
 create policy "Organization members create employer jobs" on public.wc_employer_jobs
 for insert to authenticated with check (
   created_by = auth.uid() and exists (
-    select 1 from public.wc_organization_members m where m.organization_id = organization_id and m.user_id = auth.uid()
+    select 1 from public.wc_organization_members m where m.organization_id = wc_employer_jobs.organization_id and m.user_id = auth.uid()
   ) and (status = 'draft' or exists (
     select 1 from public.wc_organizations o where o.id = organization_id and o.verification_status = 'verified'
   ))
@@ -127,9 +124,9 @@ for insert to authenticated with check (
 drop policy if exists "Organization members update employer jobs" on public.wc_employer_jobs;
 create policy "Organization members update employer jobs" on public.wc_employer_jobs
 for update to authenticated using (exists (
-  select 1 from public.wc_organization_members m where m.organization_id = organization_id and m.user_id = auth.uid()
+  select 1 from public.wc_organization_members m where m.organization_id = wc_employer_jobs.organization_id and m.user_id = auth.uid()
 )) with check (
-  exists (select 1 from public.wc_organization_members m where m.organization_id = organization_id and m.user_id = auth.uid())
+  exists (select 1 from public.wc_organization_members m where m.organization_id = wc_employer_jobs.organization_id and m.user_id = auth.uid())
   and (status <> 'published' or exists (
     select 1 from public.wc_organizations o where o.id = organization_id and o.verification_status = 'verified'
   ))
@@ -242,10 +239,10 @@ returns void language plpgsql security definer set search_path = '' as $$
 declare v_user uuid := auth.uid(); v_old text;
 begin
   if v_user is null then raise exception 'Sign in required'; end if;
-  update public.wc_employer_applications set status='withdrawn',updated_at=now()
-  where id=p_application_id and candidate_id=v_user and status not in ('rejected','offered','withdrawn')
-  returning status into v_old;
-  if not found then raise exception 'Application not found or cannot be withdrawn'; end if;
+  select status into v_old from public.wc_employer_applications
+  where id=p_application_id and candidate_id=v_user for update;
+  if v_old is null or v_old in ('rejected','offered','withdrawn') then raise exception 'Application not found or cannot be withdrawn'; end if;
+  update public.wc_employer_applications set status='withdrawn',updated_at=now() where id=p_application_id;
   insert into public.wc_employer_application_events(application_id,actor_id,from_status,to_status,note)
   values(p_application_id,v_user,v_old,'withdrawn','Candidate withdrew application');
 end; $$;
