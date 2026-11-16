@@ -23,7 +23,8 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql",
     "supabase/migrations/20261118_platform_hardening.sql",
     "supabase/migrations/20261119_professional_portfolio.sql",
-    "supabase/migrations/20261120_private_career_workspace.sql",\n    "supabase/migrations/20261121_employer_workspace.sql",
+    "supabase/migrations/20261120_private_career_workspace.sql",
+    "supabase/migrations/20261121_employer_workspace.sql",
   ]) read(path);
 });
 
