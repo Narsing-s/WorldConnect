@@ -4,6 +4,18 @@
 
 This roadmap is additive. Keep existing routes, data, user content, and working flows; do not create duplicate tabs or replace current features without a migration and explicit product reason.
 
+## Implementation status — feature/job-application-tracker
+
+The first additive job-seeker slice is implemented on the `feature/job-application-tracker` branch:
+
+- `/jobs` now offers a save-to-tracker action and a link to the personal tracker.
+- `/jobs/tracker` displays the signed-in member's saved jobs and application records.
+- Members can update status (Saved, Applied, Interview, Offer, Rejected, Withdrawn), private notes, applied date, interview date and follow-up date, or remove a record.
+- `supabase/migrations/20261116_job_application_tracker.sql` creates the table, indexes, trigger and owner-only RLS policies.
+- The migration is additive and must be applied after `supabase/jobs-auto-sync.sql`. No existing member content or job rows are deleted.
+
+This branch still requires a successful GitHub Actions build and a Supabase migration/application smoke test before production merge. AI, recruiter, event, analytics and broader security upgrades remain future phases; they are not claimed as implemented.
+
 ## 1. Current product baseline
 
 The repository currently describes these capabilities:
