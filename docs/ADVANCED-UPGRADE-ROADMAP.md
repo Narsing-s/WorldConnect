@@ -34,7 +34,7 @@ For a new Supabase project, apply:
 4. `supabase/migrations/20261117_candidate_job_preferences.sql`
 5. `supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql`
 6. `supabase/migrations/20261118_platform_hardening.sql`
-7. `supabase/migrations/20261119_professional_portfolio.sql`
+7. `supabase/migrations/20261119_professional_portfolio.sql`\n8. `supabase/migrations/20261120_private_career_workspace.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
