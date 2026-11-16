@@ -63,6 +63,7 @@ check("Employer workspace enforces verified publishing and private applications"
   assert.match(sql, /function public\.wc_create_organization/i);
   assert.match(sql, /function public\.wc_apply_to_employer_job/i);
   assert.match(sql, /function public\.wc_update_employer_application/i);
+  assert.match(sql, /revoke all on function public\.wc_apply_to_employer_job\(uuid,text\) from public, anon/i);
   assert.match(sql, /wc_employer_application_events/i);
   assert.match(sql, /role='owner'/i);
   assert.match(sql, /status = 'published'/i);
