@@ -3,7 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import "./jobs.css";
-import { ArrowLeft, BriefcaseBusiness, ExternalLink, MapPin, RefreshCw, Search, Globe2 } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, ExternalLink, MapPin, RefreshCw, Search, Globe2, Bookmark } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 type Job = { id: string; title: string; company: string; location: string; remote: boolean; description: string; url: string; postedAt: string | null; source: string; tags: string[]; salary: string | null };
 type SearchResponse = { jobs: Job[]; errors: string[]; updatedAt: string; sources?: string[] };
@@ -62,6 +63,8 @@ export default function JobsPage() {
   const [experience, setExperience] = useState("Any experience");
   const [minSalary, setMinSalary] = useState("");
   const [maxSalary, setMaxSalary] = useState("");
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
+  const [savingJobId, setSavingJobId] = useState("");
 
   const loadJobs = useCallback(async (searchTerm: string, searchLocation: string) => {
     setLoading(true); setNotice("");
@@ -81,6 +84,29 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => { void loadJobs("", ""); }, [loadJobs]);
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("wc_job_applications").select("job_external_id").eq("user_id", user.id);
+      if (data) setSavedJobIds(data.map(item => item.job_external_id));
+    })();
+  }, []);
+
+  async function saveJob(job: Job) {
+    const supabase = createClient();
+    if (!supabase) { setNotice("Connect Supabase before saving jobs."); return; }
+    setSavingJobId(job.id); setNotice("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setNotice("Please sign in to save jobs to your personal tracker."); setSavingJobId(""); return; }
+    if (savedJobIds.includes(job.id)) { setNotice("This job is already in your tracker."); setSavingJobId(""); return; }
+    const { error } = await supabase.from("wc_job_applications").insert({ user_id: user.id, job_external_id: job.id, status: "saved" });
+    if (error) setNotice(error.message.includes("wc_job_applications") ? "Apply the job tracker SQL migration in Supabase before saving jobs." : `Could not save this job: ${error.message}`);
+    else { setSavedJobIds(current => [...current, job.id]); setNotice("Job saved to My Job Tracker."); }
+    setSavingJobId("");
+  }
   useEffect(() => {
     const interval = window.setInterval(() => { void loadJobs(query, location); }, 5 * 60 * 1000);
     return () => window.clearInterval(interval);
@@ -119,7 +145,7 @@ export default function JobsPage() {
   return (
     <main className="feature-page">
       <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
-      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place. Automatically refreshes every five minutes; saved listings sync every six hours.</p></div></header>
+      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place. Automatically refreshes every five minutes; saved listings sync every six hours.</p></div></header>\n      <div className="feature-toolbar"><Link className="feature-secondary" href="/jobs/tracker"><Bookmark size={15}/> My Job Tracker ({savedJobIds.length})</Link></div>
 
       <section className="feature-section" aria-labelledby="live-jobs-heading">
         <h2 id="live-jobs-heading"><Search size={18}/> Live job search</h2>
@@ -146,7 +172,7 @@ export default function JobsPage() {
             <div className="opportunity-meta"><span>{job.source}</span><span className="job-category-label">{getJobCategory(job)}</span><time>{job.postedAt ? new Date(job.postedAt).toLocaleDateString() : "Date not provided"}</time></div>
             <h2>{job.title}</h2><strong>{job.company}</strong>
             <p>{job.description || "Open the original listing to view the complete job description."}</p>
-            <div className="opportunity-footer"><span><MapPin size={14}/> {job.location}{job.remote ? " · Remote" : ""}</span>{job.salary && <span>{job.salary}</span>}<a href={job.url} target="_blank" rel="noopener noreferrer">View &amp; apply <ExternalLink size={14}/></a></div>
+            <div className="opportunity-footer"><span><MapPin size={14}/> {job.location}{job.remote ? " · Remote" : ""}</span>{job.salary && <span>{job.salary}</span>}<a href={job.url} target="_blank" rel="noopener noreferrer">View &amp; apply <ExternalLink size={14}/></a><button type="button" className="feature-secondary" disabled={savingJobId === job.id || savedJobIds.includes(job.id)} onClick={() => void saveJob(job)}><Bookmark size={14}/>{savedJobIds.includes(job.id) ? "In tracker" : savingJobId === job.id ? "Saving…" : "Save job"}</button></div>
             {job.tags.length>0 && <div className="job-tags">{job.tags.slice(0,5).map(tag=><span key={tag}>{tag}</span>)}</div>}
           </article>)}
         </section>
