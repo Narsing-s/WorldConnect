@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, BriefcaseBusiness, LoaderCircle, Save, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import "./jobs.css";
+import "../jobs.css";
 
 type Preferences = {
   target_titles: string[];
