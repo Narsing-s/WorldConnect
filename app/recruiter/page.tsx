@@ -8,7 +8,8 @@ import "./recruiter.css";
 
 type Org={id:string;name:string;website_url:string|null;industry:string;company_size:string;country:string;verification_status:string};
 type Job={id:string;title:string;status:string;location:string;work_mode:string;employment_type:string;created_at:string};
-type CandidateSummary={id:string;display_name:string|null;username:string};\ntype JobSummary={id:string;title:string};\ntype Application={id:string;job_id:string;candidate_id:string;cover_letter:string;status:string;applied_at:string;job?:JobSummary|null;candidate?:CandidateSummary|null};
+type CandidateSummary={id:string;display_name:string|null;username:string};
+type JobSummary={id:string;title:string};\ntype Application={id:string;job_id:string;candidate_id:string;cover_letter:string;status:string;applied_at:string;job?:JobSummary|null;candidate?:CandidateSummary|null};
 const statuses=["reviewing","shortlisted","interview","offered","rejected"];
 export default function RecruiterPage(){
  const [org,setOrg]=useState<Org|null>(null);const [jobs,setJobs]=useState<Job[]>([]);const [apps,setApps]=useState<Application[]>([]);const [userId,setUserId]=useState("");const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
