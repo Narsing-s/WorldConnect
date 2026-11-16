@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase";
 
 type Profile={id:string;username:string;display_name:string;bio:string;avatar_url:string|null;country:string|null;created_at:string};
 type MemberPost={id:string;body:string;image_url:string|null;video_url:string|null;created_at:string;wc_post_likes:{user_id:string}[];wc_comments:{id:string}[]};
+type PortfolioEntry={id:string;category:"skill"|"project"|"certification"|"experience";title:string;organization:string|null;description:string;url:string|null;start_date:string|null;end_date:string|null;is_current:boolean};
 
 export default function MemberProfilePage(){
  const params=useParams<{username:string}>();
@@ -15,6 +16,7 @@ export default function MemberProfilePage(){
  const username=String(params.username||"").replace(/^@/,"").toLowerCase();
  const [profile,setProfile]=useState<Profile|null>(null);
  const [posts,setPosts]=useState<MemberPost[]>([]);
+ const [portfolio,setPortfolio]=useState<PortfolioEntry[]>([]);
  const [userId,setUserId]=useState("");
  const [following,setFollowing]=useState(false);
  const [followers,setFollowers]=useState(0);
@@ -34,15 +36,17 @@ export default function MemberProfilePage(){
    if(!active)return;
    if(error||!member){setNotice(error?.message||"This member profile could not be found.");setLoading(false);return;}
    setProfile(member as Profile);setUserId(user?.id||"");
-   const [followersResult,followingResult,postsResult,followResult]=await Promise.all([
+   const [followersResult,followingResult,postsResult,followResult,portfolioResult]=await Promise.all([
     db.from("wc_follows").select("follower_id",{count:"exact",head:true}).eq("following_id",member.id),
     db.from("wc_follows").select("following_id",{count:"exact",head:true}).eq("follower_id",member.id),
     db.from("wc_posts").select("id,body,image_url,video_url,created_at,wc_post_likes(user_id),wc_comments(id)").eq("author_id",member.id).order("created_at",{ascending:false}).limit(50),
-    user&&user.id!==member.id?db.from("wc_follows").select("follower_id").eq("follower_id",user.id).eq("following_id",member.id).maybeSingle():Promise.resolve({data:null,error:null})
+    user&&user.id!==member.id?db.from("wc_follows").select("follower_id").eq("follower_id",user.id).eq("following_id",member.id).maybeSingle():Promise.resolve({data:null,error:null}),
+    db.from("wc_portfolio_entries").select("id,category,title,organization,description,url,start_date,end_date,is_current").eq("user_id",member.id).order("sort_order").order("created_at",{ascending:false})
    ]);
    if(!active)return;
    setFollowers(followersResult.count||0);setFollowingCount(followingResult.count||0);
    setPosts((postsResult.data||[]) as MemberPost[]);
+   setPortfolio((portfolioResult.data||[]) as PortfolioEntry[]);
    setFollowing(Boolean(followResult.data));
    if(postsResult.error)setNotice("Profile loaded, but posts could not be loaded: "+postsResult.error.message);
    setLoading(false);
@@ -105,6 +109,7 @@ export default function MemberProfilePage(){
     <div className="member-profile-stats"><span><strong>{followers.toLocaleString()}</strong> Followers</span><span><strong>{followingCount.toLocaleString()}</strong> Following</span><span><strong>{posts.length.toLocaleString()}</strong> Posts</span></div>
    </div>
   </section>
+  {portfolio.length>0&&<section className="member-portfolio"><div className="feature-toolbar"><strong>Professional portfolio</strong><span>{portfolio.length} items</span></div>{(["skill","project","certification","experience"] as const).map(category=>{const items=portfolio.filter(item=>item.category===category);if(!items.length)return null;const label=category==="skill"?"Skills":category==="project"?"Projects":category==="certification"?"Certifications":"Experience";return <div className="member-portfolio-group" key={category}><h2>{label}</h2><div className={category==="skill"?"member-skill-list":""}>{items.map(item=><article className="member-portfolio-entry" key={item.id}><strong>{item.title}</strong>{item.organization&&<span>{item.organization}</span>}{item.description&&<p>{item.description}</p>}{item.url&&<a href={item.url} target="_blank" rel="noreferrer">View details ↗</a>}{(item.start_date||item.is_current)&&<small>{item.start_date||"Start date not set"} – {item.is_current?"Present":item.end_date||"End date not set"}</small>}</article>)}</div></div>;})}</section>}
   {notice&&<p className="feature-notice" role="status">{notice}</p>}
   <section className="member-profile-posts">
    <div className="feature-toolbar"><strong>Posts by {profile.display_name||profile.username}</strong><span>{posts.length} posts</span></div>
