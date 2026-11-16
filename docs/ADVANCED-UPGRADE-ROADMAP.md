@@ -35,7 +35,7 @@ For a new Supabase project, apply:
 5. `supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql`
 6. `supabase/migrations/20261118_platform_hardening.sql`
 7. `supabase/migrations/20261119_professional_portfolio.sql`
-8. `supabase/migrations/20261120_private_career_workspace.sql`
+8. `supabase/migrations/20261120_private_career_workspace.sql`\n9. `supabase/migrations/20261121_employer_workspace.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
@@ -71,11 +71,9 @@ Follow-up work: opt-in provider-backed resume feedback, job-description-specific
 
 ## Phase 3 — Recruiter and employer workspace
 
-- Organization profiles and separate recruiter/company roles.
-- Employer verification with an auditable review process.
-- Job creation, editing, closing, and applicant pipeline.
-- Candidate search only where the member has explicitly allowed visibility.
-- Shortlisting, interview invitations, and recruiter-to-candidate messaging.
+Implemented on `feature/phase3-recruiter-workspace`: company workspace registration; owner-only verification submission; draft job creation and verified-company publishing; a board of verified employer openings; candidate applications with duplicate/self-application prevention; recruiter pipeline stages; and an application event history. See `docs/RECRUITER-WORKSPACE.md`.
+
+Verification is not self-awarded. An authorized WorldConnect reviewer must validate company information and update the organization and verification request records. Candidate resumes and private career workspaces are not shared with employers in this phase. Team invitations, reviewer admin UI, interview scheduling, and candidate consent-based profile sharing remain follow-up work.
 
 ## Phase 4 — Professional growth and community
 
