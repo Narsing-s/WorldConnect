@@ -20,6 +20,7 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 - Job-board directory with direct links to major India and international employment sites
 - Search filters for source and location type; applications open on the original provider website
 - Search jobs by role, skills and location; apply on the original job provider website
+- Private job tracker with saved vacancies, application statuses, notes, applied dates, interview dates and follow-up dates
 - Automatic six-hour sync into persistent Supabase job storage, duplicate-safe updates and stale-listing expiry
 - Share WorldConnect through LinkedIn, WhatsApp, Telegram, email and the device share sheet
 - In-app notifications for likes, comments, follows and messages
@@ -42,7 +43,8 @@ WorldConnect is a responsive global community platform built with Next.js, TypeS
 3. For an existing installation, also run `supabase/fix-direct-message-duplicates.sql` once. This safely updates direct-message creation so repeated taps or retries reuse the same one-to-one conversation; it does not delete conversations or messages.
 4. In Supabase Authentication → URL Configuration, set the Site URL to your deployed app URL and add redirect URLs for localhost and your deployed `/auth/callback` URL.
 4. Enable email/password authentication and configure the email provider/confirmation settings you want.
-5. Set the two public Supabase environment variables in Vercel and redeploy.
+5. For the personal job tracker, also run `supabase/migrations/20261116_job_application_tracker.sql` after `supabase/jobs-auto-sync.sql` has created `wc_jobs`.
+6. Set the two public Supabase environment variables in Vercel and redeploy.
 
 The optional `supabase/remove-demo-content-and-integrations.sql` is an audit-only script. It does not delete member content.
 
@@ -68,7 +70,8 @@ Password recovery is available at `/forgot-password`; the email link returns thr
 
 ## Jobs and social sharing
 
-- `/jobs` aggregates public feeds from Remotive, Arbeitnow, Remote OK and Jobicy server-side, with keyword/location search and source/location filters. It also provides a direct-link directory for Naukri, LinkedIn Jobs, Indeed, Foundit, Instahyre, Cutshort, TimesJobs, Shine, Freshersworld, Wellfound, Glassdoor, Remote OK, We Work Remotely, Jobicy, Remotive, Arbeitnow, Dice and ZipRecruiter.
+- `/jobs` aggregates public feeds from Remotive, Arbeitnow, Remote OK and Jobicy server-side, with keyword/location search and source/location filters. Signed-in members can save listings and manage statuses, notes, applied/interview dates and follow-up dates at `/jobs/tracker`.
+- The tracker requires `supabase/migrations/20261116_job_application_tracker.sql`; it uses per-member RLS policies and does not expose one member's applications to another. It also provides a direct-link directory for Naukri, LinkedIn Jobs, Indeed, Foundit, Instahyre, Cutshort, TimesJobs, Shine, Freshersworld, Wellfound, Glassdoor, Remote OK, We Work Remotely, Jobicy, Remotive, Arbeitnow, Dice and ZipRecruiter.
 - Job-board directory links open the providers' own websites. Only the four public feeds are aggregated automatically; other providers do not expose a supported public feed here and are not scraped. Listings and availability depend on provider feeds and terms.
 - `/integrations` provides user-initiated sharing through official LinkedIn, WhatsApp, Telegram and email share flows.
 - Direct LinkedIn feed access/automatic publishing, WhatsApp Business API messaging and Telegram bot notifications require separate app registration, approval and credentials. No account is falsely marked as connected.
