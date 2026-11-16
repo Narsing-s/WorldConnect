@@ -23,7 +23,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql",
     "supabase/migrations/20261118_platform_hardening.sql",
     "supabase/migrations/20261119_professional_portfolio.sql",
-    "supabase/migrations/20261120_private_career_workspace.sql",
+    "supabase/migrations/20261120_private_career_workspace.sql",\n    "supabase/migrations/20261121_employer_workspace.sql",
   ]) read(path);
 });
 
@@ -52,6 +52,25 @@ check("Career workspace is private and owner-only", () => {
   const page = read("app/career-assistant/page.tsx");
   assert.match(page, /No external AI provider receives your resume/);
   assert.match(page, /I agree to store this resume/);
+});
+
+check("Employer workspace enforces verified publishing and private applications", () => {
+  const sql = read("supabase/migrations/20261121_employer_workspace.sql");
+  assert.match(sql, /wc_organizations[\s\S]*verification_status/i);
+  assert.match(sql, /verification_status = 'verified'/i);
+  assert.match(sql, /revoke all on public\.wc_organizations[\s\S]*from public, anon/i);
+  assert.match(sql, /function public\.wc_create_organization/i);
+  assert.match(sql, /function public\.wc_apply_to_employer_job/i);
+  assert.match(sql, /function public\.wc_update_employer_application/i);
+  assert.match(sql, /wc_employer_application_events/i);
+  assert.match(sql, /role='owner'/i);
+  assert.match(sql, /status = 'published'/i);
+  assert.match(sql, /on conflict\(job_id,candidate_id\) do nothing/i);
+  const recruiter = read("app/recruiter/page.tsx");
+  const board = read("app/employer-jobs/page.tsx");
+  assert.match(recruiter, /wc_submit_organization_verification/);
+  assert.match(recruiter, /wc_update_employer_application/);
+  assert.match(board, /wc_apply_to_employer_job/);
 });
 
 check("Notification hardening restricts updates to read_at", () => {
