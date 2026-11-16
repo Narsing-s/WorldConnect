@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,4 +13,9 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Verify platform security and migration guardrails
+        run: npm run verify:platform
+      - name: Production build
+        run: npm run build
