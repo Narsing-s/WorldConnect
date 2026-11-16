@@ -34,7 +34,8 @@ For a new Supabase project, apply:
 4. `supabase/migrations/20261117_candidate_job_preferences.sql`
 5. `supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql`
 6. `supabase/migrations/20261118_platform_hardening.sql`
-7. `supabase/migrations/20261119_professional_portfolio.sql`\n8. `supabase/migrations/20261120_private_career_workspace.sql`
+7. `supabase/migrations/20261119_professional_portfolio.sql`
+8. `supabase/migrations/20261120_private_career_workspace.sql`\n8. `supabase/migrations/20261120_private_career_workspace.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
@@ -60,13 +61,11 @@ For an existing project, compare the live schema before applying any script. App
 - Existing member content and IDs remain intact.
 - All key flows have loading, empty, success, and failure states.
 
-## Phase 2 — AI career assistant
+## Phase 2 — Career Assistant
 
-- Resume parsing into a draft profile, with explicit user approval before saving.
-- Explainable job-to-profile matching and missing-skill analysis.
-- Resume suggestions tailored to a selected job description; never fabricate experience.
-- Interview practice by role and seniority, with follow-up questions and feedback.
-- Skill-gap analysis and learning paths linked to target roles.
+Implemented on `feature/phase2-career-assistant`: browser-side resume section review and skill extraction; explainable job matching against current published listings; role-based skill-gap suggestions; curated interview practice questions; and optional private workspace persistence with explicit consent and owner-only RLS. This release does not send resume text to an external AI provider or claim deterministic scores are AI predictions. See `docs/CAREER-ASSISTANT.md`.
+
+Follow-up work: opt-in provider-backed resume feedback, job-description-specific tailoring, seniority-aware interview sessions, and curated learning paths. These require provider disclosure, separate consent, cost controls, and safeguards against fabricated experience.
 
 **Privacy requirements:** resumes are private by default; never send a resume to an external model without clear user action and disclosure; do not retain unnecessary raw resume text; label generated content as suggestions; never imply guaranteed hiring.
 
