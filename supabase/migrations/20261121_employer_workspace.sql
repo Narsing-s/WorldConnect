@@ -104,13 +104,13 @@ drop policy if exists "Members view verification requests for their organization
 create policy "Members view verification requests for their organizations" on public.wc_organization_verification_requests
 for select to authenticated using (exists (
   select 1 from public.wc_organization_members m
-  where m.organization_id = organization_id and m.user_id = auth.uid()
+  where m.organization_id = wc_organization_verification_requests.organization_id and m.user_id = auth.uid()
 ));
 drop policy if exists "Verified employer jobs are public and members see their drafts" on public.wc_employer_jobs;
 create policy "Verified employer jobs are public and members see their drafts" on public.wc_employer_jobs
 for select to authenticated using (
   exists (select 1 from public.wc_organizations o where o.id = organization_id and o.verification_status = 'verified' and status = 'published')
-  or exists (select 1 from public.wc_organization_members m where m.organization_id = organization_id and m.user_id = auth.uid())
+  or exists (select 1 from public.wc_organization_members m where m.organization_id = wc_employer_jobs.organization_id and m.user_id = auth.uid())
 );
 drop policy if exists "Organization members create employer jobs" on public.wc_employer_jobs;
 create policy "Organization members create employer jobs" on public.wc_employer_jobs
