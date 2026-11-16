@@ -247,6 +247,12 @@ begin
   values(p_application_id,v_user,v_old,'withdrawn','Candidate withdrew application');
 end; $$;
 
+revoke all on function public.wc_create_organization(text,text,text,text,text) from public, anon;
+revoke all on function public.wc_submit_organization_verification(uuid,text,text) from public, anon;
+revoke all on function public.wc_apply_to_employer_job(uuid,text) from public, anon;
+revoke all on function public.wc_update_employer_application(uuid,text,text) from public, anon;
+revoke all on function public.wc_withdraw_employer_application(uuid) from public, anon;
+
 grant execute on function public.wc_create_organization(text,text,text,text,text) to authenticated;
 grant execute on function public.wc_submit_organization_verification(uuid,text,text) to authenticated;
 grant execute on function public.wc_apply_to_employer_job(uuid,text) to authenticated;
