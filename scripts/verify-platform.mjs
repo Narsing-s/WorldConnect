@@ -23,6 +23,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql",
     "supabase/migrations/20261118_platform_hardening.sql",
     "supabase/migrations/20261119_professional_portfolio.sql",
+    "supabase/migrations/20261120_private_career_workspace.sql",
   ]) read(path);
 });
 
@@ -42,7 +43,7 @@ check("Candidate preferences enforce owner-only RLS and no anon access", () => {
   assert.match(sql, /revoke all on public\.wc_candidate_preferences from anon/i);
 });
 
-check("Notification hardening restricts updates to read_at", () => {
+check("Career workspace is private and owner-only", () => {\n  const sql = read("supabase/migrations/20261120_private_career_workspace.sql");\n  assert.match(sql, /alter table public\\.wc_career_workspaces enable row level security/i);\n  assert.match(sql, /using\\s*\\(auth\\.uid\\(\\)\\s*=\\s*user_id\\)/i);\n  assert.match(sql, /with check\\s*\\(auth\\.uid\\(\\)\\s*=\\s*user_id\\)/i);\n  assert.match(sql, /revoke all on public\\.wc_career_workspaces from public, anon/i);\n  const page = read("app/career-assistant/page.tsx");\n  assert.match(page, /No external AI provider receives your resume/);\n  assert.match(page, /I agree to store this resume/);\n});\n\ncheck("Notification hardening restricts updates to read_at", () => {
   const sql = read("supabase/migrations/20261118_platform_hardening.sql");
   assert.match(sql, /revoke update on table public\.wc_notifications from authenticated/i);
   assert.match(sql, /grant update \(read_at\) on table public\.wc_notifications to authenticated/i);
