@@ -13,8 +13,11 @@ The first additive job-seeker slice is implemented on the `feature/job-applicati
 - Members can update status (Saved, Applied, Interview, Offer, Rejected, Withdrawn), private notes, applied date, interview date and follow-up date, or remove a record.
 - `supabase/migrations/20261116_job_application_tracker.sql` creates the table, indexes, trigger and owner-only RLS policies.
 - The migration is additive and must be applied after `supabase/jobs-auto-sync.sql`. No existing member content or job rows are deleted.
+- `/jobs/preferences` stores private target roles, skills, preferred locations and work modes in `wc_candidate_preferences`.
+- `/jobs` calculates transparent match scores in the browser and lists the matched preference terms; it does not send private profile data to an external AI service.
+- `supabase/migrations/20261117_candidate_job_preferences.sql` adds owner-only RLS policies and must be applied after the job tracker migration.
 
-This branch still requires a successful GitHub Actions build and a Supabase migration/application smoke test before production merge. AI, recruiter, event, analytics and broader security upgrades remain future phases; they are not claimed as implemented.
+This branch still requires a successful GitHub Actions build and a Supabase migration/application smoke test before production merge. External AI resume analysis, recruiter, event, analytics and broader security upgrades remain future phases; they are not claimed as implemented.
 
 ## 1. Current product baseline
 
@@ -45,6 +48,7 @@ The repository currently describes these capabilities:
 ### P1 — Complete the job-seeker experience
 
 - Saved jobs and a personal application tracker: Saved → Applied → Interview → Offer / Rejected.
+- Private candidate preferences and explainable job-match scoring are implemented on the feature branch; apply the candidate preferences migration before using them.
 - Application notes, follow-up dates, interview schedule, and status history.
 - Filters for keyword, skills, location, remote/hybrid/on-site, source, date, and employment type where source data supports them.
 - Duplicate detection across providers using normalized company/title/location/application URL.
