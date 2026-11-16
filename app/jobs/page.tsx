@@ -9,6 +9,40 @@ import { createClient } from "@/lib/supabase";
 type Job = { id: string; title: string; company: string; location: string; remote: boolean; description: string; url: string; postedAt: string | null; source: string; tags: string[]; salary: string | null };
 type SearchResponse = { jobs: Job[]; errors: string[]; updatedAt: string; sources?: string[] };
 type Board = { name: string; url: string; region: string; kind: string };
+type CandidatePreferences = { target_titles: string[]; skills: string[]; locations: string[]; work_modes: string[] };
+type JobMatch = { score: number; reasons: string[] };
+
+function scoreJobMatch(job: Job, preferences: CandidatePreferences | null): JobMatch | null {
+  if (!preferences) return null;
+  const title = job.title.toLowerCase();
+  const allText = [title, job.description, ...(job.tags || [])].join(" ").toLowerCase();
+  const dimensions: Array<{ weight: number; matched: boolean; reason: string }> = [];
+  if (preferences.target_titles.length) {
+    const matched = preferences.target_titles.filter(term => title.includes(term.toLowerCase()));
+    dimensions.push({ weight: 40, matched: matched.length > 0, reason: matched.length ? `Role: ${matched.slice(0, 2).join(", ")}` : "" });
+  }
+  if (preferences.skills.length) {
+    const matched = preferences.skills.filter(term => allText.includes(term.toLowerCase()));
+    dimensions.push({ weight: 40, matched: matched.length > 0, reason: matched.length ? `Skills: ${matched.slice(0, 3).join(", ")}` : "" });
+  }
+  if (preferences.locations.length) {
+    const location = job.location.toLowerCase();
+    const matched = preferences.locations.filter(term => location.includes(term.toLowerCase()));
+    dimensions.push({ weight: 15, matched: matched.length > 0, reason: matched.length ? `Location: ${matched[0]}` : "" });
+  }
+  if (preferences.work_modes.length) {
+    const locationText = `${job.location} ${job.description}`.toLowerCase();
+    const matched = preferences.work_modes.filter(mode => mode === "Remote"
+      ? job.remote || /remote|work from home|distributed/i.test(locationText)
+      : mode === "Hybrid" ? /hybrid/i.test(locationText)
+      : /on[ -]?site|office based|in office/i.test(locationText));
+    dimensions.push({ weight: 5, matched: matched.length > 0, reason: matched.length ? `Work mode: ${matched[0]}` : "" });
+  }
+  const totalWeight = dimensions.reduce((sum, item) => sum + item.weight, 0);
+  if (!totalWeight) return null;
+  const earned = dimensions.reduce((sum, item) => sum + (item.matched ? item.weight : 0), 0);
+  return { score: Math.round((earned / totalWeight) * 100), reasons: dimensions.filter(item => item.reason).map(item => item.reason) };
+}
 
 const boards: Board[] = [
   { name: "Naukri", url: "https://www.naukri.com/", region: "India", kind: "All roles" },
@@ -65,6 +99,7 @@ export default function JobsPage() {
   const [maxSalary, setMaxSalary] = useState("");
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingJobId, setSavingJobId] = useState("");
+  const [candidatePreferences, setCandidatePreferences] = useState<CandidatePreferences | null>(null);
 
   const loadJobs = useCallback(async (searchTerm: string, searchLocation: string) => {
     setLoading(true); setNotice("");
@@ -108,6 +143,22 @@ export default function JobsPage() {
     setSavingJobId("");
   }
   useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("wc_candidate_preferences")
+        .select("target_titles,skills,locations,work_modes").eq("user_id", user.id).maybeSingle();
+      if (data) setCandidatePreferences({
+        target_titles: data.target_titles || [],
+        skills: data.skills || [],
+        locations: data.locations || [],
+        work_modes: data.work_modes || []
+      });
+    })();
+  }, []);
+  useEffect(() => {
     const interval = window.setInterval(() => { void loadJobs(query, location); }, 5 * 60 * 1000);
     return () => window.clearInterval(interval);
   }, [loadJobs, query, location]);
@@ -141,11 +192,15 @@ export default function JobsPage() {
       (max === null || (Number.isFinite(salaryValue) && salaryValue <= max));
   }), [jobs, source, region, category, postedWithin, experience, minSalary, maxSalary]);
   const sources = useMemo(() => ["All sources", ...Array.from(new Set(jobs.map(job => job.source))).sort()], [jobs]);
+  const jobMatchScores = useMemo(() => new Map(jobs.map(job => [job.id, scoreJobMatch(job, candidatePreferences)])), [jobs, candidatePreferences]);
+  const matchingJobs = jobs.filter(job => jobMatchScores.get(job.id) !== null).length;
 
   return (
     <main className="feature-page">
       <Link href="/" className="feature-back"><ArrowLeft size={16}/> WorldConnect</Link>
-      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place. Automatically refreshes every five minutes; saved listings sync every six hours.</p></div></header>\n      <div className="feature-toolbar"><Link className="feature-secondary" href="/jobs/tracker"><Bookmark size={15}/> My Job Tracker ({savedJobIds.length})</Link></div>
+      <header className="feature-heading"><span><BriefcaseBusiness size={22}/></span><div><h1>WorldConnect Job Hub</h1><p>Search live job feeds and open trusted job boards from one place. Automatically refreshes every five minutes; saved listings sync every six hours.</p></div></header>\n      <div className="feature-toolbar"><Link className="feature-secondary" href="/jobs/tracker"><Bookmark size={15}/> My Job Tracker ({savedJobIds.length})</Link><Link className="feature-secondary" href="/jobs/preferences">✦ Job match preferences</Link></div>
+      {candidatePreferences && <p className="feature-notice" role="status">{matchingJobs} listings have a match score based on your saved preferences. <Link href="/jobs/preferences">Edit preferences</Link>.</p>}
+      {!candidatePreferences && <p className="feature-notice">Set your <Link href="/jobs/preferences">job match preferences</Link> to see transparent match scores on vacancies.</p>}
 
       <section className="feature-section" aria-labelledby="live-jobs-heading">
         <h2 id="live-jobs-heading"><Search size={18}/> Live job search</h2>
@@ -170,7 +225,9 @@ export default function JobsPage() {
         <section className="opportunity-list">
           {visibleJobs.map(job=><article className="opportunity-card" key={job.id}>
             <div className="opportunity-meta"><span>{job.source}</span><span className="job-category-label">{getJobCategory(job)}</span><time>{job.postedAt ? new Date(job.postedAt).toLocaleDateString() : "Date not provided"}</time></div>
-            <h2>{job.title}</h2><strong>{job.company}</strong>
+            <h2>{job.title}</h2>
+            {jobMatchScores.get(job.id) && <div className="job-match-summary"><strong>{jobMatchScores.get(job.id)?.score}% match</strong><span>{jobMatchScores.get(job.id)?.reasons.join(" · ") || "No matching preference terms found"}</span></div>}
+            <strong>{job.company}</strong>
             <p>{job.description || "Open the original listing to view the complete job description."}</p>
             <div className="opportunity-footer"><span><MapPin size={14}/> {job.location}{job.remote ? " · Remote" : ""}</span>{job.salary && <span>{job.salary}</span>}<a href={job.url} target="_blank" rel="noopener noreferrer">View &amp; apply <ExternalLink size={14}/></a><button type="button" className="feature-secondary" disabled={savingJobId === job.id || savedJobIds.includes(job.id)} onClick={() => void saveJob(job)}><Bookmark size={14}/>{savedJobIds.includes(job.id) ? "In tracker" : savingJobId === job.id ? "Saving…" : "Save job"}</button></div>
             {job.tags.length>0 && <div className="job-tags">{job.tags.slice(0,5).map(tag=><span key={tag}>{tag}</span>)}</div>}
