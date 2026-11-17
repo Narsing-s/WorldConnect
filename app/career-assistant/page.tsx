@@ -42,7 +42,7 @@ export default function CareerAssistantPage(){
  const [resume,setResume]=useState("");const [role,setRole]=useState("");const [consent,setConsent]=useState(false);const [analysis,setAnalysis]=useState<Analysis|null>(null);const [jobs,setJobs]=useState<Job[]>([]);const [loadingJobs,setLoadingJobs]=useState(false);const [saving,setSaving]=useState(false);const [loadingSaved,setLoadingSaved]=useState(true);const [notice,setNotice]=useState("");const [error,setError]=useState("");const [saved,setSaved]=useState(false);
  const db=useMemo(()=>createClient(),[]);
  useEffect(()=>{let active=true;void(async()=>{if(!db){setLoadingSaved(false);return;}const {data:{user}}=await db.auth.getUser();if(!user){setLoadingSaved(false);return;}const {data,error:e}=await db.from("wc_career_workspaces").select("resume_text,target_role").eq("user_id",user.id).maybeSingle();if(active&&data){setResume(data.resume_text||"");setRole(data.target_role||"");setSaved(true);}if(active&&e&&!/does not exist|schema cache/i.test(e.message))setError(e.message);if(active)setLoadingSaved(false);})();return()=>{active=false;};},[db]);
- const skills=analysis?.skills||[];
+ const skills=useMemo(()=>analysis?.skills||[],[analysis]);
  const targets=roleSkills[roleKey(role)]||roleSkills.default;
  const gaps=targets.filter(s=>!skills.some(found=>found.toLowerCase()===s.toLowerCase()));
  const rankedJobs=useMemo(()=>jobs.map(job=>({...job,...scoreJob(job,role,skills)})).sort((a,b)=>b.score-a.score).slice(0,6),[jobs,role,skills]);
