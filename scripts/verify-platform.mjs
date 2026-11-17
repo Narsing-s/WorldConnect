@@ -172,7 +172,7 @@ check("New chat attachments use private storage and signed URLs", () => {
   assert.ok(sql.includes("file_size_limit"));
   const messages = read("app/messages/page.tsx");
   assert.ok(messages.includes("createSignedUrl"));
-  assert.ok(messages.includes("worldconnect-private-media").includes("worldconnect-private-media"));
+  assert.ok(messages.includes("worldconnect-private-media"));
   assert.ok(messages.includes("attachment_display_url"));
   assert.ok(messages.includes("attachment_url:path"));
 });
