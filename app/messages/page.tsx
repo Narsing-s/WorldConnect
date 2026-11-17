@@ -97,10 +97,13 @@ export default function MessagesPage(){
   setThreads(next);
   setNotice("");
   const requested=new URLSearchParams(window.location.search).get("conversation");
-  if(requested&&ids.includes(requested))setSelected(requested);
-  else if(!selected&&next[0])setSelected(next[0].id);
-  if(selected&&!ids.includes(selected))setSelected(next[0]?.id||"");
- },[selected]);
+  setSelected(current=>{
+   if(requested&&ids.includes(requested))return requested;
+   if(!current&&next[0])return next[0].id;
+   if(current&&!ids.includes(current))return next[0]?.id||"";
+   return current;
+  });
+ },[]);
  useEffect(()=>{void load();},[load]);
 
  useEffect(()=>{
