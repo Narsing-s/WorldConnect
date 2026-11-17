@@ -197,12 +197,21 @@ check("New chat attachments use private storage and signed URLs", () => {
   assert.ok(messages.includes("attachment_url:path"));
 });
 
-check("Privacy page discloses public media and missing self-service deletion", () => {
+check("Privacy page discloses public media and accurately scopes self-service data controls", () => {
   const page = read("app/privacy/page.tsx");
+  const controls = read("app/privacy/privacy-controls.tsx");
   assert.match(page, /publicly readable/i);
   assert.match(page, /Do not upload identity documents/i);
-  assert.match(page, /does not yet provide self-service account export or complete account deletion/i);
+  assert.match(page, /not yet a complete archive/i);
+  assert.match(page, /Full account deletion[\\s\\S]*require additional server-side work/i);
   assert.match(page, /private to the signed-in member/i);
+  assert.match(page, /<PrivacyControls\\s*\\/>/);
+  assert.match(controls, /Download your data/);
+  assert.match(controls, /Export data/);
+  assert.match(controls, /Delete private career workspace/);
+  assert.match(controls, /does not delete your account/i);
+  assert.match(controls, /Full account deletion[\\s\\S]*not represented as available/i);
+  assert.match(controls, /\.eq\\("user_id", userId\\)/);
 });
 
 for (const item of checks) {
