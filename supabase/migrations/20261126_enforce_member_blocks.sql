@@ -143,6 +143,22 @@ create policy "Memberships are viewable by everyone"
     or not public.wc_is_blocked_between(auth.uid(), user_id)
   );
 
+drop policy if exists "Users manage own memberships" on public.wc_community_members;
+create policy "Users manage own memberships"
+  on public.wc_community_members for all to authenticated
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.wc_communities c
+      where c.id = community_id
+        and (
+          c.created_by is null
+          or not public.wc_is_blocked_between(auth.uid(), c.created_by)
+        )
+    )
+  );
+
 -- Conversation membership becomes inaccessible to both sides as soon as
 -- either side blocks the other. This is used by conversation, membership,
 -- message and private-storage RLS policies.
