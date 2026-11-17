@@ -40,6 +40,7 @@ For a new Supabase project, apply:
 10. `supabase/migrations/20261122_employer_collaboration.sql`
 11. `supabase/migrations/20261123_trust_safety_foundation.sql`
 12. `supabase/migrations/20261124_moderation_audit_trail.sql`
+13. `supabase/migrations/20261125_private_chat_attachments.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
@@ -119,7 +120,8 @@ Keep these capabilities inside existing Jobs, Profile, Messages, and Communities
 - [ ] Add reviewer moderation queue with auditable decisions, appeal handling, and retention controls.
 
 ### Remaining platform-wide upgrades
-- [ ] Private storage migration: create a private bucket, validate uploads by MIME type and size, issue short-lived signed URLs, and migrate existing objects/URLs without breaking current content. Do not switch off public access until backfill and verification are complete.
+- [x] New chat attachments use a separate private bucket, conversation-member storage policies, MIME/size restrictions, and short-lived signed URLs. Existing public media URLs remain untouched.
+- [ ] Migrate existing public chat attachments and other sensitive media to private storage with a verified backfill; do not disable old public access until every existing reference is migrated and verified.
 - [ ] Account privacy centre: member data export, deletion request workflow, session controls, and retention policy. Account deletion must be server-authorized and cascade safely across Supabase Auth, Storage, and app records.
 - [ ] Messaging: read receipts and typing indicators with privacy controls; edit/delete with immutable audit boundaries; reply threading, reactions, voice notes, and safe attachment previews.
 - [ ] Feed: followed-only and discovery modes, topic subscriptions, saved collections, ranking explanations, and user-controlled recommendation settings.
