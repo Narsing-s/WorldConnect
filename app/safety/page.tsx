@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck, ShieldAlert, UserRoundX, Flag, LoaderCircle, Ban } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -23,7 +23,7 @@ export default function SafetyPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  async function refresh(id: string) {
+  const refresh = useCallback(async (id: string) => {
     const supabase = createClient();
     if (!supabase) return;
     const [blockResult, reportResult] = await Promise.all([
@@ -39,7 +39,7 @@ export default function SafetyPage() {
     const profiles = ids.length ? await supabase.from("wc_profiles").select("id,username,display_name").in("id", ids) : { data: [] };
     setBlocked(rows.map((row) => ({ ...row, profile: profiles.data?.find((profile) => profile.id === row.blocked_user_id) || null })));
     setReports((reportResult.data || []) as Report[]);
-  }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -55,7 +55,7 @@ export default function SafetyPage() {
     }
     void init();
     return () => { active = false; };
-  }, []);
+  }, [refresh]);
 
   async function blockMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
