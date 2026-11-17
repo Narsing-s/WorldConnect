@@ -122,7 +122,7 @@ export default function MessagesPage(){
    .update({last_read_at:readAt})
    .eq("conversation_id",conversationId).eq("user_id",userId);
   if(!error)setThreads(current=>current.map(thread=>thread.id===conversationId?{...thread,unreadCount:0}:thread));
- }
+ },[userId]);
 
  useEffect(()=>{
   if(!selected||!userId)return;
