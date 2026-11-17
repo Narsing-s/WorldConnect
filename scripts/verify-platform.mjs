@@ -25,6 +25,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261119_professional_portfolio.sql",
     "supabase/migrations/20261120_private_career_workspace.sql",
     "supabase/migrations/20261121_employer_workspace.sql",
+    "supabase/migrations/20261122_employer_collaboration.sql",
   ]) read(path);
 });
 
@@ -73,6 +74,22 @@ check("Employer workspace enforces verified publishing and private applications"
   assert.match(recruiter, /wc_submit_organization_verification/);
   assert.match(recruiter, /wc_update_employer_application/);
   assert.match(board, /wc_apply_to_employer_job/);
+});
+
+
+check("Employer collaboration protects invitations, interviews, consent and reviewer decisions", () => {
+  const sql = read("supabase/migrations/20261122_employer_collaboration.sql");
+  assert.match(sql, /wc_organization_invitations enable row level security/i);
+  assert.match(sql, /digest\(v_token,'sha256'\)/i);
+  assert.match(sql, /v_email<>v_inv\.invited_email/i);
+  assert.match(sql, /wc_schedule_employer_interview/i);
+  assert.match(sql, /wc_candidate_grant_profile_consent/i);
+  assert.match(sql, /wc_candidate_revoke_profile_consent/i);
+  assert.match(sql, /worldconnect_role',''\)='reviewer'/i);
+  assert.match(sql, /security_invoker=true/i);
+  const admin = read("app/admin/verifications/page.tsx");
+  assert.match(admin, /worldconnect_role/);
+  assert.match(admin, /wc_review_organization_verification/);
 });
 
 check("Notification hardening restricts updates to read_at", () => {
