@@ -51,7 +51,7 @@ export default function EmployerVerificationReviewPage() {
 
   return <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6">
     <div className="mx-auto max-w-4xl">
-      <Link href="/jobs" className="mb-6 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16}/> Back to Jobs</Link>
+      <div className="mb-6 flex flex-wrap gap-4"><Link href="/jobs" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16}/> Back to Jobs</Link><Link href="/admin/reports" className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-white">Content moderation queue</Link></div>
       <header className="mb-7 flex items-start gap-3">
         <div className="rounded-2xl bg-emerald-400/10 p-3 text-emerald-300"><ShieldCheck size={25}/></div>
         <div><p className="text-xs font-semibold uppercase tracking-[.18em] text-emerald-300">WorldConnect Admin</p><h1 className="mt-1 text-2xl font-bold sm:text-3xl">Employer verification queue</h1><p className="mt-2 text-sm text-slate-400">Review submitted company information before enabling verified employer publishing.</p></div>
