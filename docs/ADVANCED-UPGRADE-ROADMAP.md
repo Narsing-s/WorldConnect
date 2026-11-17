@@ -1,133 +1,103 @@
-# WorldConnect — Advanced Upgrade Roadmap
+# WorldConnect — Advanced Platform Upgrade Roadmap
 
-**Product direction:** an AI-assisted professional network combining a reliable social community, a global job marketplace, and career-development tools.
+Product direction: a privacy-first global professional network combining social discovery, jobs, recruiter workflows, career development, mentorship and community learning.
 
-This roadmap is additive. Preserve existing routes, database records, member content, and working flows. Do not create duplicate navigation tabs or replace current features without a migration and a clear product reason.
+This plan is additive. Preserve existing routes, database records, member content and working flows. Do not add duplicate top-level navigation. A feature is complete only when its UI, authorization, migration, tests, documentation and deployed configuration are verified.
 
 ## Current implementation on main
 
-The repository already includes:
-- Authentication, member profiles, password recovery, and profile photo upload.
-- Persistent posts, likes, comments, follows, saved posts, notifications, and private conversations.
-- Communities and a community opportunity board.
-- External job discovery, automatic job synchronization, saved applications, and a private application tracker.
-- Private candidate preferences with explainable, browser-side job matching.
-- Professional portfolio entries for skills, projects, certifications, and experience.
-- Additive Supabase migrations for data integrity and notification/query hardening.
+The repository contains authentication, profiles, persistent social features, communities, private conversations, external job discovery and synchronization, private job applications and candidate preferences, a browser-side Career Assistant, employer/recruiter workspaces, member blocks, content reports, reviewer audit events, private storage for new chat attachments, and a database migration enforcing blocks across key social and messaging surfaces.
 
-These features are implemented in source; production readiness still depends on applying the matching SQL scripts to the correct Supabase project and passing CI plus live smoke tests.
+Source presence is not proof of production deployment. Production readiness depends on applying required SQL migrations to the intended Supabase project, configuring Vercel/GitHub secrets and passing CI plus live two-account tests.
 
-## Phase 1 — Production readiness
+## Phase 1 — Security and production readiness
 
-### Automated repository checks
-- Run ESLint on every pull request and push to main.
-- Run a dependency-free platform verifier for critical migration files, owner-only RLS invariants, notification update grants, and server-only service-role configuration.
-- Run the Next.js production build after the checks above.
-- Keep checks additive; do not seed demo users, posts, or fake job listings.
+Implemented in source:
+- [x] Owner-scoped job applications, candidate preferences and career workspace.
+- [x] Employer workspace, verified-company publishing and membership-scoped collaboration.
+- [x] Member-controlled blocks and content-report intake.
+- [x] Reviewer-only moderation queue and immutable status audit events.
+- [x] Private storage bucket for new chat attachments.
+- [x] Database-level block enforcement migration across key profile/feed/comment/like/follow/community/opportunity/conversation/notification surfaces.
+- [x] Source-level platform verifier for critical migrations and authorization invariants.
 
-### Supabase migration order
+Still required before production claims:
+- [ ] Inspect live Supabase migration history and apply only missing migrations in dependency order.
+- [ ] Verify block enforcement with two test accounts across every route and storage policy.
+- [ ] Migrate legacy public chat attachments and sensitive media with a verified object backfill. Do not revoke old public access until every reference and object is verified.
+- [ ] Complete report appeals, reviewer decision controls and documented retention/abuse-response procedures.
+- [ ] Add account data export/deletion with server-authorized Auth, database and Storage cleanup.
+- [ ] Add session/device management and optional MFA UX using Supabase Auth; never expose service-role credentials to the browser.
+- [ ] Add rate limits and abuse controls to public/authenticated write endpoints.
+- [ ] Add SQL integration and browser end-to-end tests for two-account isolation.
+- [ ] Verify production environment variables and job-sync secrets without exposing values.
 
-For a new Supabase project, apply:
-1. `supabase/schema.sql`
-2. `supabase/jobs-auto-sync.sql`
-3. `supabase/migrations/20261116_job_application_tracker.sql`
-4. `supabase/migrations/20261117_candidate_job_preferences.sql`
-5. `supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql`
-6. `supabase/migrations/20261118_platform_hardening.sql`
-7. `supabase/migrations/20261119_professional_portfolio.sql`
-8. `supabase/migrations/20261120_private_career_workspace.sql`
-9. `supabase/migrations/20261121_employer_workspace.sql`
-10. `supabase/migrations/20261122_employer_collaboration.sql`
-11. `supabase/migrations/20261123_trust_safety_foundation.sql`
-12. `supabase/migrations/20261124_moderation_audit_trail.sql`
-13. `supabase/migrations/20261125_private_chat_attachments.sql`
+## Phase 2 — Career intelligence
 
-For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
+Implemented: browser-side resume review and skill extraction, explainable job matching, role-based skill-gap suggestions, curated interview practice, and consent-based private workspace persistence.
 
-### Production deployment checklist
+Next:
+- [ ] Optional provider-backed resume feedback with explicit consent, provider disclosure, retention limits and cost controls.
+- [ ] Job-description-specific resume suggestions.
+- [ ] Seniority-aware mock interviews and feedback.
+- [ ] Curated learning paths with progress tracking and source attribution.
+- [ ] Label generated advice as suggestions; never fabricate experience or guarantee hiring.
 
-- Confirm Vercel Production points to the intended Supabase project.
-- Configure `NEXT_PUBLIC_SUPABASE_URL` and the publishable/anon key as public client configuration only.
-- Configure `SUPABASE_SERVICE_ROLE_KEY` only as a server-side Vercel environment variable; never prefix it with `NEXT_PUBLIC_`.
-- Configure `JOBS_SYNC_SECRET` in Vercel and the matching GitHub Actions secret, plus `WORLDCONNECT_APP_URL`.
-- Run one manual job-sync workflow and confirm the API returns success and a completed sync-run record is written.
-- Verify signed-out users cannot read private applications or preferences.
-- Verify one member cannot read or update another member's applications, preferences, or messages.
-- Verify notification recipients can acknowledge notifications but cannot rewrite notification identity or content.
-- Test signup, login, password recovery, profile updates, posts, likes, comments, follows, saved posts, messaging, communities, jobs, tracker, and portfolio on the deployed URL.
-- Check Vercel and GitHub Actions logs for errors without exposing secrets or personal data.
+## Phase 3 — Recruiter and employer experience
 
-### Acceptance criteria
+Implemented: organization workspace, verification submission, verified-company job publishing, candidate applications, recruiter pipeline, application event history, invitations, interview scheduling and candidate-controlled profile-section consent.
 
-- Lint, platform verification, and production build pass in GitHub Actions.
-- RLS and grants are both least-privilege; neither is treated as a substitute for the other.
-- Job-sync provider failures do not erase previously imported listings.
-- Private candidate and application data is never exposed to anonymous users.
-- Existing member content and IDs remain intact.
-- All key flows have loading, empty, success, and failure states.
-
-## Phase 2 — Career Assistant
-
-Implemented on `feature/phase2-career-assistant`: browser-side resume section review and skill extraction; explainable job matching against current published listings; role-based skill-gap suggestions; curated interview practice questions; and optional private workspace persistence with explicit consent and owner-only RLS. This release does not send resume text to an external AI provider or claim deterministic scores are AI predictions. See `docs/CAREER-ASSISTANT.md`.
-
-Follow-up work: opt-in provider-backed resume feedback, job-description-specific tailoring, seniority-aware interview sessions, and curated learning paths. These require provider disclosure, separate consent, cost controls, and safeguards against fabricated experience.
-
-**Privacy requirements:** resumes are private by default; never send a resume to an external model without clear user action and disclosure; do not retain unnecessary raw resume text; label generated content as suggestions; never imply guaranteed hiring.
-
-## Phase 3 — Recruiter and employer workspace
-
-Implemented on `feature/phase3-recruiter-workspace`: company workspace registration; owner-only verification submission; draft job creation and verified-company publishing; a board of verified employer openings; candidate applications with duplicate/self-application prevention; recruiter pipeline stages; and an application event history. See `docs/RECRUITER-WORKSPACE.md`.
-
-Verification is not self-awarded. Phase 4 adds a reviewer queue at `/admin/verifications`, trusted reviewer authorization through Supabase Auth app metadata, owner-controlled recruiter invitations, interview scheduling RPCs, candidate-controlled and revocable profile-section consent, and a membership-scoped employer analytics view. See `docs/EMPLOYER-COLLABORATION.md`. Profile sharing is a permission record only; employer-facing profile display must still enforce active consent and must never expose private resumes or Career Assistant content by default.
+Next:
+- [ ] Complete reviewer verification operations and audit workflows.
+- [ ] Add interview reminders and candidate-controlled calendar integrations.
+- [ ] Add recruiter activity notifications with opt-in controls.
+- [ ] Add organization ownership recovery and employee offboarding.
 
 ## Phase 4 — Professional growth and community
 
-- Events, webinars, mentorship, and referral requests.
-- Skill endorsements with anti-spam controls.
-- Topic discovery and user-controlled feed recommendations.
-- Community learning paths and professional sessions.
+- [ ] Mentorship discovery by skills, role, language and region, with consent-based requests and scheduling.
+- [ ] Events/webinars with registration and reminders.
+- [ ] Referral requests/offers with abuse prevention and transparent status.
+- [ ] Skill endorsements with rate limits and relationship context.
+- [ ] Topic subscriptions, followed-only/discovery feed modes and explainable feed controls.
+- [ ] Community learning paths and project-based challenges.
 
-Keep these capabilities inside existing Jobs, Profile, Messages, and Communities areas rather than adding a top-level tab for every feature.
+Keep these capabilities inside existing Jobs, Profile, Messages and Communities areas rather than adding a top-level tab for every feature.
 
-## Phase 5 — Scale and operational excellence
+## Phase 5 — Scale, mobile and operations
 
-- Durable background queues, retry/backoff, and dead-letter handling.
-- Provider health dashboard and sync diagnostics.
-- Query profiling, pagination, and load testing.
-- File validation, private storage buckets, and signed URLs.
-- Accessibility, mobile performance, and PWA improvements.
-- Privacy policy, terms, account export/deletion, retention rules, and abuse response.
+- [ ] Durable background queues with retry/backoff, idempotency and dead-letter handling.
+- [ ] Job-provider health dashboard and sync diagnostics.
+- [ ] Query profiling, indexes, cursor pagination and load tests.
+- [ ] File validation, private buckets, signed URLs and verified legacy-media migration.
+- [ ] PWA installability, offline-safe shell and opt-in push notifications.
+- [ ] Low-bandwidth mobile experience and responsive performance budgets.
+- [ ] Telugu, Hindi and English localization foundation.
+- [ ] Accessibility audit: keyboard navigation, focus, labels, contrast and screen-reader behavior.
+- [ ] Centralized error monitoring, structured redacted logs and operational alerts.
+- [ ] Privacy policy, terms, export/deletion workflow, retention policy and incident response.
+
+## Required release gates
+
+1. Additive migration only; inspect schema dependencies and avoid destructive assumptions.
+2. Enforce least-privilege RLS and SQL grants together.
+3. Add loading, empty, success and failure states to every UI flow.
+4. Test signed-out access, owner access and cross-account denial.
+5. Run lint, platform verification and production build.
+6. Run browser and SQL integration tests where UI/database boundaries are involved.
+7. Verify in the intended deployment before calling a feature production-ready.
+
+## Supabase migration order
+
+For a fresh project, use the ordered list in Production Readiness. For an existing project, inspect the actual schema and migration history first and apply only missing scripts. Do not blindly rerun one-off repair scripts.
 
 ## Non-negotiable engineering rules
 
-- No demo users, seeded social posts, fake job listings, or fabricated company verification.
-- No service-role keys in browser bundles, public environment variables, logs, or API responses.
+- No demo users, seeded social posts, fake jobs or fabricated company verification.
+- No service-role keys in browser bundles, public environment variables, logs or API responses.
 - No broad unrestricted authenticated-write RLS policies.
 - No breaking schema changes without a migration and backward-compatible rollout.
 - No duplicate UI sections or nonfunctional buttons.
 - Keep existing member content and IDs intact.
-- Every new feature needs loading, empty, success, and failure states plus tests.
-
-
-## Advanced implementation program — Phase 1 started
-
-### Trust and safety foundation
-- [x] Add member-controlled block records with owner-only read/create/delete policies.
-- [x] Add content-report intake with controlled categories, private reporter history, and reviewer-only database access.
-- [x] Add a member Safety Centre for blocking, reporting, and viewing submitted report status.
-- [x] Add a trusted-reviewer moderation queue and immutable report status audit events.
-- [ ] Enforce blocks consistently in feed, member search, communities, messaging, and notifications before claiming blocking is full protection.
-- [ ] Add reviewer moderation queue with auditable decisions, appeal handling, and retention controls.
-
-### Remaining platform-wide upgrades
-- [x] New chat attachments use a separate private bucket, conversation-member storage policies, MIME/size restrictions, and short-lived signed URLs. Existing public media URLs remain untouched.
-- [ ] Migrate existing public chat attachments and other sensitive media to private storage with a verified backfill; do not disable old public access until every existing reference is migrated and verified.
-- [ ] Account privacy centre: member data export, deletion request workflow, session controls, and retention policy. Account deletion must be server-authorized and cascade safely across Supabase Auth, Storage, and app records.
-- [ ] Messaging: read receipts and typing indicators with privacy controls; edit/delete with immutable audit boundaries; reply threading, reactions, voice notes, and safe attachment previews.
-- [ ] Feed: followed-only and discovery modes, topic subscriptions, saved collections, ranking explanations, and user-controlled recommendation settings.
-- [ ] India-first UX: Telugu/Hindi/English localization foundation, regional discovery, job scam reporting, and accessible low-bandwidth layouts.
-- [ ] PWA: installability, offline-safe cached shell, push notification opt-in, and background sync with conflict handling.
-- [ ] Reliability: end-to-end tests for two-account authorization boundaries, SQL integration tests, rate limits, monitoring, provider health, and load tests.
-
-### Release discipline
-Each phase is delivered through a feature branch and pull request. Apply SQL migrations only after reviewing the live Supabase migration history. No production database, Vercel configuration, or secrets are changed by repository commits. Do not announce a feature as fully protective until every relevant route and policy enforces it.
+- Never claim protection or production readiness until every relevant route, database policy, storage policy and test enforces it.
+- Repository commits cannot apply SQL to Supabase or change Vercel secrets; those are separate privileged operations.
