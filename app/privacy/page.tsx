@@ -48,6 +48,11 @@ export default function PrivacyPage() {
         </section>
       ))}
 
+      <section className="opportunity-card" aria-label="Safety controls">
+        <h2><ShieldAlert size={18} /> Member safety controls</h2>
+        <p>Use the <Link href="/safety">Safety Centre</Link> to submit a report or manage your blocked-member list. Blocking is currently recorded as a preference and is not yet enforced across every part of the app.</p>
+      </section>
+
       <p className="feature-notice" role="note">
         This page describes current application behavior and known limitations. It is not legal advice or a substitute for a reviewed privacy policy. The site owner should publish verified contact details, retention periods, hosting information and applicable user-rights procedures before public launch.
       </p>
