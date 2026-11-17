@@ -51,6 +51,10 @@ alter table public.wc_organization_invitations enable row level security;
 alter table public.wc_employer_interviews enable row level security;
 alter table public.wc_candidate_profile_consents enable row level security;
 
+drop policy if exists "Trusted reviewers view verification queue" on public.wc_organization_verification_requests;
+create policy "Trusted reviewers view verification queue" on public.wc_organization_verification_requests
+for select to authenticated using (coalesce(auth.jwt()->'app_metadata'->>'worldconnect_role','')='reviewer');
+
 drop policy if exists "Organization owners view invitations" on public.wc_organization_invitations;
 create policy "Organization owners view invitations" on public.wc_organization_invitations
 for select to authenticated using (exists (
@@ -179,7 +183,7 @@ begin
  if char_length(coalesce(p_reviewer_note,''))>1500 then raise exception 'Reviewer note is too long'; end if;
  select organization_id into v_org from public.wc_organization_verification_requests where id=p_request_id and status='pending' for update;
  if v_org is null then raise exception 'Pending verification request not found'; end if;
- update public.wc_organization_verification_requests set status=case when p_decision='verified' then 'approved' else 'rejected' end,reviewed_at=now() where id=p_request_id;
+ update public.wc_organization_verification_requests set status=case when p_decision='verified' then 'approved' else 'rejected' end,reviewed_at=now(),reviewer_note=left(coalesce(p_reviewer_note,''),1500) where id=p_request_id;
  update public.wc_organizations set verification_status=p_decision,updated_at=now() where id=v_org;
 end; $$;
 
