@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BarChart3, CalendarClock, Copy, LoaderCircle, MailPlus, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, CalendarClock, Copy, LoaderCircle, MailPlus, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 type Org={id:string;name:string};
