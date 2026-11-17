@@ -19,7 +19,7 @@ create policy "Conversation members upload private chat files"
     and (storage.foldername(name))[2] = 'messages'
     and exists (
       select 1 from public.wc_conversation_members cm
-      where cm.conversation_id = ((storage.foldername(name))[3])::uuid
+      where cm.conversation_id::text = (storage.foldername(name))[3]
         and cm.user_id = auth.uid()
     )
   );
