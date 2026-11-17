@@ -1,4 +1,6 @@
 -- Phase 4: employer collaboration, interviews, candidate-controlled sharing and review operations.
+create extension if not exists pgcrypto with schema extensions;
+
 -- Reviewer access is granted only through trusted Supabase auth app_metadata:
 -- { "worldconnect_role": "reviewer" }. Never let clients edit app_metadata.
 
@@ -97,9 +99,9 @@ begin
   if not exists(select 1 from public.wc_organization_members where organization_id=p_organization_id and user_id=v_user and role='owner') then raise exception 'Only an organization owner can invite recruiters'; end if;
   if exists(select 1 from public.wc_organization_members m join auth.users u on u.id=m.user_id where m.organization_id=p_organization_id and lower(u.email)=v_email) then raise exception 'This person is already a member'; end if;
   if exists(select 1 from public.wc_organization_invitations where organization_id=p_organization_id and invited_email=v_email and status='pending' and expires_at>now()) then raise exception 'An active invitation already exists'; end if;
-  v_token:=encode(gen_random_bytes(32),'hex');
+  v_token:=encode(extensions.gen_random_bytes(32),'hex');
   insert into public.wc_organization_invitations(organization_id,invited_email,token_hash,invited_by)
-  values(p_organization_id,v_email,encode(digest(v_token,'sha256'),'hex'),v_user);
+  values(p_organization_id,v_email,encode(extensions.digest(v_token,'sha256'),'hex'),v_user);
   return v_token;
 end; $$;
 
