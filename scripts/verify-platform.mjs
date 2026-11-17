@@ -162,25 +162,25 @@ check("Trust and safety migration protects blocks and reports", () => {
   const page = read("app/safety/page.tsx");
   assert.ok(page.includes("Submit report"));
   assert.ok(page.includes("Block a member"));
-  assert.ok(page.includes("cannot discover each other's profiles"));
+  assert.ok(page.includes("cannot discover each other&apos;s profiles"));
   assert.ok(page.includes("previously shared public media URLs"));
   assert.ok(page.includes("Blocking is enforced for authenticated app queries"));
 });
 
 check("Member blocks are enforced by RLS across discovery, communities and messaging", () => {
   const sql = read("supabase/migrations/20261126_enforce_member_blocks.sql");
-  assert.match(sql, /function public\\.wc_is_blocked_between\\(user_a uuid, user_b uuid\\)/i);
-  assert.match(sql, /user_a = auth\\.uid\\(\\) or user_b = auth\\.uid\\(\\)/i);
+  assert.match(sql, /function public\.wc_is_blocked_between\(user_a uuid, user_b uuid\)/i);
+  assert.match(sql, /user_a = auth\.uid\(\) or user_b = auth\.uid\(\)/i);
   for (const table of ["wc_profiles", "wc_posts", "wc_comments", "wc_post_likes", "wc_follows", "wc_communities", "wc_community_members", "wc_opportunities"]) {
     assert.match(sql, new RegExp("drop policy if exists[\\s\\S]{0,120}on public\\." + table, "i"));
   }
   assert.match(sql, /Users manage own memberships[\\s\\S]*wc_is_blocked_between/i);
-  assert.match(sql, /function public\\.wc_is_conversation_member/i);
-  assert.match(sql, /function public\\.wc_start_conversation/i);
-  assert.match(sql, /wc_is_blocked_between\\(current_user_id, target_user\\)/i);
-  assert.match(sql, /Users view their notifications[\\s\\S]*wc_is_blocked_between/i);
-  assert.match(sql, /Conversation members read private chat files[\\s\\S]*wc_is_conversation_member/i);
-  assert.match(sql, /Conversation members upload private chat files[\\s\\S]*wc_is_conversation_member/i);
+  assert.match(sql, /function public\.wc_is_conversation_member/i);
+  assert.match(sql, /function public\.wc_start_conversation/i);
+  assert.match(sql, /wc_is_blocked_between\(current_user_id, target_user\)/i);
+  assert.match(sql, /Users view their notifications[\s\S]*wc_is_blocked_between/i);
+  assert.match(sql, /Conversation members read private chat files[\s\S]*wc_is_conversation_member/i);
+  assert.match(sql, /Conversation members upload private chat files[\s\S]*wc_is_conversation_member/i);
   assert.doesNotMatch(sql, /delete\\s+from\\s+public\\.wc_(posts|messages|follows)/i);
 });
 
