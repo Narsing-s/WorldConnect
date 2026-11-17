@@ -26,15 +26,20 @@ export default function MessagesPage(){
  const [realtimeState,setRealtimeState]=useState<"connecting"|"connected"|"fallback">("connecting");
  const attachmentInput=useRef<HTMLInputElement>(null);
  const lastPolledIncoming=useRef("");
+ const signedAttachmentCache=useRef(new Map<string,{url:string;expiresAt:number}>());
 
  const resolveMessageAttachments=useCallback(async(items:Message[])=>{
   const supabase=createClient();if(!supabase)return items;
   return Promise.all(items.map(async message=>{
    const stored=message.attachment_url;
    if(!stored)return message;
-   if(/^https?:\\/\\//i.test(stored))return {...message,attachment_display_url:stored};
+   if(/^https?:\/\//i.test(stored))return {...message,attachment_display_url:stored};
+   const cached=signedAttachmentCache.current.get(stored);
+   if(cached&&cached.expiresAt>Date.now()+60000)return {...message,attachment_display_url:cached.url};
    const {data,error}=await supabase.storage.from("worldconnect-private-media").createSignedUrl(stored,3600);
-   return {...message,attachment_display_url:error?null:data?.signedUrl||null};
+   if(error||!data?.signedUrl)return {...message,attachment_display_url:null};
+   signedAttachmentCache.current.set(stored,{url:data.signedUrl,expiresAt:Date.now()+55*60*1000});
+   return {...message,attachment_display_url:data.signedUrl};
   }));
  },[]);
 
@@ -341,6 +346,7 @@ export default function MessagesPage(){
   if(savedMessage){[savedMessage]=await resolveMessageAttachments([savedMessage]);}
   if(!savedMessage){
    URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
+   await supabase.storage.from("worldconnect-private-media").remove([path]);
    setNotice("File uploaded, but the message could not be saved: "+(messageError?.message||"No message record was returned"));return;
   }
   URL.revokeObjectURL(previewUrl);
