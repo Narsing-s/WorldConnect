@@ -27,6 +27,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261121_employer_workspace.sql",
     "supabase/migrations/20261122_employer_collaboration.sql",
     "supabase/migrations/20261123_trust_safety_foundation.sql",
+    "supabase/migrations/20261124_moderation_audit_trail.sql",
   ]) read(path);
 });
 
@@ -148,6 +149,14 @@ check("Trust and safety migration protects blocks and reports", () => {
   assert.ok(sql.includes("auth.uid() = reporter_id"));
   assert.ok(sql.includes("worldconnect_role"));
   assert.ok(sql.includes("revoke all on public.wc_content_reports from public, anon"));
+  const audit = read("supabase/migrations/20261124_moderation_audit_trail.sql");
+  assert.ok(audit.includes("wc_content_report_events"));
+  assert.ok(audit.includes("security definer"));
+  assert.ok(audit.includes("after insert or update of status"));
+  const moderation = read("app/admin/reports/page.tsx");
+  assert.ok(moderation.includes("worldconnect_role"));
+  assert.ok(moderation.includes("Mark reviewing"));
+  assert.ok(moderation.includes("Resolve"));
   const page = read("app/safety/page.tsx");
   assert.ok(page.includes("Submit report"));
   assert.ok(page.includes("Block a member"));
