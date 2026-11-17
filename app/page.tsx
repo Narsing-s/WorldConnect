@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- User-uploaded remote media and local blob previews are rendered directly to preserve their existing responsive sizing and preview behavior. */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
