@@ -29,6 +29,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261123_trust_safety_foundation.sql",
     "supabase/migrations/20261124_moderation_audit_trail.sql",
     "supabase/migrations/20261125_private_chat_attachments.sql",
+    "supabase/migrations/20261126_enforce_member_blocks.sql",
   ]) read(path);
 });
 
@@ -161,8 +162,9 @@ check("Trust and safety migration protects blocks and reports", () => {
   const page = read("app/safety/page.tsx");
   assert.ok(page.includes("Submit report"));
   assert.ok(page.includes("Block a member"));
-  assert.ok(page.includes("does not automatically remove public content from that member"));
-  assert.ok(page.includes("Full feed, search, messaging and notification enforcement"));
+  assert.ok(page.includes("cannot discover each other's profiles"));
+  assert.ok(page.includes("previously shared public media URLs"));
+  assert.ok(page.includes("Blocking is enforced for authenticated app queries"));
 });
 
 check("New chat attachments use private storage and signed URLs", () => {
