@@ -1,21 +1,40 @@
 name: WorldConnect CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worldconnect-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
+    name: Lint, security guardrails and production build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
       - name: Lint
         run: npm run lint
+
       - name: Verify platform security and migration guardrails
         run: npm run verify:platform
+
       - name: Production build
         run: npm run build
