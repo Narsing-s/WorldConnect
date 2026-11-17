@@ -38,6 +38,7 @@ For a new Supabase project, apply:
 8. `supabase/migrations/20261120_private_career_workspace.sql`
 9. `supabase/migrations/20261121_employer_workspace.sql`
 10. `supabase/migrations/20261122_employer_collaboration.sql`
+11. `supabase/migrations/20261123_trust_safety_foundation.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
@@ -104,3 +105,25 @@ Keep these capabilities inside existing Jobs, Profile, Messages, and Communities
 - No duplicate UI sections or nonfunctional buttons.
 - Keep existing member content and IDs intact.
 - Every new feature needs loading, empty, success, and failure states plus tests.
+
+
+## Advanced implementation program — Phase 1 started
+
+### Trust and safety foundation
+- [x] Add member-controlled block records with owner-only read/create/delete policies.
+- [x] Add content-report intake with controlled categories, private reporter history, and reviewer-only database access.
+- [x] Add a member Safety Centre for blocking, reporting, and viewing submitted report status.
+- [ ] Enforce blocks consistently in feed, member search, communities, messaging, and notifications before claiming blocking is full protection.
+- [ ] Add reviewer moderation queue with auditable decisions, appeal handling, and retention controls.
+
+### Remaining platform-wide upgrades
+- [ ] Private storage migration: create a private bucket, validate uploads by MIME type and size, issue short-lived signed URLs, and migrate existing objects/URLs without breaking current content. Do not switch off public access until backfill and verification are complete.
+- [ ] Account privacy centre: member data export, deletion request workflow, session controls, and retention policy. Account deletion must be server-authorized and cascade safely across Supabase Auth, Storage, and app records.
+- [ ] Messaging: read receipts and typing indicators with privacy controls; edit/delete with immutable audit boundaries; reply threading, reactions, voice notes, and safe attachment previews.
+- [ ] Feed: followed-only and discovery modes, topic subscriptions, saved collections, ranking explanations, and user-controlled recommendation settings.
+- [ ] India-first UX: Telugu/Hindi/English localization foundation, regional discovery, job scam reporting, and accessible low-bandwidth layouts.
+- [ ] PWA: installability, offline-safe cached shell, push notification opt-in, and background sync with conflict handling.
+- [ ] Reliability: end-to-end tests for two-account authorization boundaries, SQL integration tests, rate limits, monitoring, provider health, and load tests.
+
+### Release discipline
+Each phase is delivered through a feature branch and pull request. Apply SQL migrations only after reviewing the live Supabase migration history. No production database, Vercel configuration, or secrets are changed by repository commits. Do not announce a feature as fully protective until every relevant route and policy enforces it.
