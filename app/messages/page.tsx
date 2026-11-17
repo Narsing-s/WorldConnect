@@ -27,6 +27,35 @@ export default function MessagesPage(){
  const attachmentInput=useRef<HTMLInputElement>(null);
  const lastPolledIncoming=useRef("");
 
+ "use client";
+
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, MessageCircle, Send, Search, LoaderCircle, UserRound, Paperclip } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+type Thread={id:string;userId:string;label:string;username:string;last:string;lastAt:string;unreadCount:number};
+type ProfileSummary={id:string;display_name:string|null;username:string|null;avatar_url?:string|null};
+type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string;attachment_url?:string|null;attachment_name?:string|null;attachment_type?:string|null;delivery_status?:"sending"|"sent"|"failed"};
+
+export default function MessagesPage(){
+ const [userId,setUserId]=useState("");
+ const [threads,setThreads]=useState<Thread[]>([]);
+ const [selected,setSelected]=useState("");
+ const [messages,setMessages]=useState<Message[]>([]);
+ const [loadingHistory,setLoadingHistory]=useState(false);
+ const [query,setQuery]=useState("");
+ const [results,setResults]=useState<ProfileSummary[]>([]);
+ const [searching,setSearching]=useState(false);
+ const [draft,setDraft]=useState("");
+ const [notice,setNotice]=useState("Loading inbox…");
+ const [busyId,setBusyId]=useState("");
+ const [onlineIds,setOnlineIds]=useState<string[]>([]);
+ const [uploading,setUploading]=useState(false);
+ const [realtimeState,setRealtimeState]=useState<"connecting"|"connected"|"fallback">("connecting");
+ const attachmentInput=useRef<HTMLInputElement>(null);
+ const lastPolledIncoming=useRef("");
+
  const load=useCallback(async()=>{
   const supabase=createClient();
   if(!supabase){setNotice("Connect Supabase and run the database setup to enable messages.");return;}
@@ -71,8 +100,8 @@ export default function MessagesPage(){
   if(requested&&ids.includes(requested))setSelected(requested);
   else if(!selected&&next[0])setSelected(next[0].id);
   if(selected&&!ids.includes(selected))setSelected(next[0]?.id||"");
- }
- useEffect(()=>{void load();},[]);
+ },[selected]);
+ useEffect(()=>{void load();},[load]);
 
  useEffect(()=>{
   if(!userId)return;
@@ -98,7 +127,7 @@ export default function MessagesPage(){
  useEffect(()=>{
   if(!selected||!userId)return;
   void markConversationRead(selected);
- },[selected,userId]);
+ },[selected,userId,markConversationRead]);
 
  useEffect(()=>{
   if(!userId)return;
