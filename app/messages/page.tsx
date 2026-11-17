@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, Send, Search, LoaderCircle, UserRound, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -27,7 +27,36 @@ export default function MessagesPage(){
  const attachmentInput=useRef<HTMLInputElement>(null);
  const lastPolledIncoming=useRef("");
 
- async function load(){
+ "use client";
+
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, MessageCircle, Send, Search, LoaderCircle, UserRound, Paperclip } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+
+type Thread={id:string;userId:string;label:string;username:string;last:string;lastAt:string;unreadCount:number};
+type ProfileSummary={id:string;display_name:string|null;username:string|null;avatar_url?:string|null};
+type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string;attachment_url?:string|null;attachment_name?:string|null;attachment_type?:string|null;delivery_status?:"sending"|"sent"|"failed"};
+
+export default function MessagesPage(){
+ const [userId,setUserId]=useState("");
+ const [threads,setThreads]=useState<Thread[]>([]);
+ const [selected,setSelected]=useState("");
+ const [messages,setMessages]=useState<Message[]>([]);
+ const [loadingHistory,setLoadingHistory]=useState(false);
+ const [query,setQuery]=useState("");
+ const [results,setResults]=useState<ProfileSummary[]>([]);
+ const [searching,setSearching]=useState(false);
+ const [draft,setDraft]=useState("");
+ const [notice,setNotice]=useState("Loading inbox…");
+ const [busyId,setBusyId]=useState("");
+ const [onlineIds,setOnlineIds]=useState<string[]>([]);
+ const [uploading,setUploading]=useState(false);
+ const [realtimeState,setRealtimeState]=useState<"connecting"|"connected"|"fallback">("connecting");
+ const attachmentInput=useRef<HTMLInputElement>(null);
+ const lastPolledIncoming=useRef("");
+
+ const load=useCallback(async()=>{
   const supabase=createClient();
   if(!supabase){setNotice("Connect Supabase and run the database setup to enable messages.");return;}
   const {data:{user}}=await supabase.auth.getUser();
@@ -68,11 +97,14 @@ export default function MessagesPage(){
   setThreads(next);
   setNotice("");
   const requested=new URLSearchParams(window.location.search).get("conversation");
-  if(requested&&ids.includes(requested))setSelected(requested);
-  else if(!selected&&next[0])setSelected(next[0].id);
-  if(selected&&!ids.includes(selected))setSelected(next[0]?.id||"");
- }
- useEffect(()=>{void load();},[]);
+  setSelected(current=>{
+   if(requested&&ids.includes(requested))return requested;
+   if(!current&&next[0])return next[0].id;
+   if(current&&!ids.includes(current))return next[0]?.id||"";
+   return current;
+  });
+ },[]);
+ useEffect(()=>{void load();},[load]);
 
  useEffect(()=>{
   if(!userId)return;
@@ -85,7 +117,7 @@ export default function MessagesPage(){
   return()=>{void supabase.removeChannel(channel);};
  },[userId]);
 
- async function markConversationRead(conversationId:string){
+ const markConversationRead=useCallback(async(conversationId:string)=>{
   if(!userId||!conversationId)return;
   const supabase=createClient();if(!supabase)return;
   const readAt=new Date().toISOString();
@@ -93,12 +125,12 @@ export default function MessagesPage(){
    .update({last_read_at:readAt})
    .eq("conversation_id",conversationId).eq("user_id",userId);
   if(!error)setThreads(current=>current.map(thread=>thread.id===conversationId?{...thread,unreadCount:0}:thread));
- }
+ },[userId]);
 
  useEffect(()=>{
   if(!selected||!userId)return;
   void markConversationRead(selected);
- },[selected,userId]);
+ },[selected,userId,markConversationRead]);
 
  useEffect(()=>{
   if(!userId)return;
@@ -132,7 +164,7 @@ export default function MessagesPage(){
    });
   },4000);
   return()=>{window.clearInterval(fallbackPoll);void supabase.removeChannel(channel);};
- },[userId,selected]);
+ },[userId,selected,markConversationRead]);
 
  useEffect(()=>{
   if(!userId)return;
