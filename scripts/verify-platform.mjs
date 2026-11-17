@@ -217,14 +217,12 @@ check("Privacy page discloses public media and accurately scopes self-service da
 check("Account security controls use Supabase MFA and revoke other sessions", () => {
   const controls = read("app/privacy/account-security-controls.tsx");
   const page = read("app/privacy/page.tsx");
-  assert.match(controls, /mfa\\.listFactors/);
-  assert.match(controls, /mfa\\.enroll/);
-  assert.match(controls, /mfa\\.challenge/);
-  assert.match(controls, /mfa\\.verify/);
-  assert.match(controls, /mfa\\.unenroll/);
-  assert.match(controls, /signOut\\(\\{ scope: "others" \\}\\)/);
+  for (const api of ["mfa.listFactors(", "mfa.enroll(", "mfa.challenge(", "mfa.verify(", "mfa.unenroll("]) {
+    assert.ok(controls.includes(api), "Expected Supabase Auth API: " + api);
+  }
+  assert.ok(controls.includes('signOut({ scope: "others" })'));
   assert.match(controls, /does not display a device inventory/i);
-  assert.match(page, /<AccountSecurityControls \\/>/);
+  assert.ok(page.includes("<AccountSecurityControls />"));
   assert.match(page, /complete device inventory/i);
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase";
 import { CheckCircle2, KeyRound, LoaderCircle, MonitorSmartphone, ShieldCheck, ShieldOff } from "lucide-react";
 
@@ -13,7 +14,6 @@ export default function AccountSecurityControls() {
   const [notice, setNotice] = useState("");
   const [factors, setFactors] = useState<Array<{ id: string; factor_type: string; status: string; friendly_name?: string | null }>>([]);
   const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
-  const [challengeId, setChallengeId] = useState("");
   const [code, setCode] = useState("");
 
   const refresh = useCallback(async () => {
@@ -97,7 +97,7 @@ export default function AccountSecurityControls() {
             <div className="account-security-enroll">
               <h3>Finish authenticator setup</h3>
               <p>Scan this QR code with an authenticator app. If scanning is unavailable, enter the setup key manually. The key is shown only during this setup and is not saved by WorldConnect.</p>
-              <img className="account-security-qr" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(enrollment.qrCode)}`} alt="Authenticator setup QR code" />
+              <Image className="account-security-qr" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(enrollment.qrCode)}`} alt="Authenticator setup QR code" width={220} height={220} unoptimized />
               <code className="account-security-secret">{enrollment.secret}</code>
               <form onSubmit={verifyEnrollment}>
                 <label htmlFor="account-security-code">Six-digit authenticator code</label>
