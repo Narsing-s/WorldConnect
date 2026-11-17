@@ -131,6 +131,21 @@ check("Every tracked SQL migration is non-empty", () => {
   for (const file of files) assert.ok(readFileSync(join(root, "supabase/migrations", file), "utf8").trim().length > 0, file + " is empty");
 });
 
+check("CI uses read-only repository permissions and bounded execution", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  assert.match(workflow, /permissions:\\s*contents:\\s*read/i);
+  assert.match(workflow, /timeout-minutes:\\s*20/);
+  assert.match(workflow, /cancel-in-progress:\\s*true/);
+});
+
+check("Privacy page discloses public media and missing self-service deletion", () => {
+  const page = read("app/privacy/page.tsx");
+  assert.match(page, /publicly readable/i);
+  assert.match(page, /Do not upload identity documents/i);
+  assert.match(page, /does not yet provide self-service account export or complete account deletion/i);
+  assert.match(page, /private to the signed-in member/i);
+});
+
 for (const item of checks) {
   const suffix = item.reason ? ": " + item.reason : "";
   console.log(`[${item.status}] ${item.label}${suffix}`);
