@@ -1,9 +1,10 @@
 "use client";
 import { useCallback,useEffect,useState } from "react";
 import Link from "next/link";
-import { ArrowLeft,CheckCircle2,LoaderCircle,ShieldCheck,Trash2 } from "lucide-react";
+import { ArrowLeft,LoaderCircle,ShieldCheck,Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 type Application={id:string;organization_id:string;job?:{title:string;wc_organizations?:{name:string}|null}|null};
+type ApplicationQueryRow={id:string;job:{organization_id:string;title:string;wc_organizations:{name:string}|null}|null};
 type Consent={id:string;organization_id:string;application_id:string|null;shared_fields:string[];granted_at:string;expires_at:string;revoked_at:string|null};
 const fields=[["basic_profile","Basic profile"],["skills","Skills"],["portfolio","Portfolio"],["experience","Experience"],["certifications","Certifications"]];
 export default function CareerSharingPage(){
@@ -11,7 +12,7 @@ export default function CareerSharingPage(){
  const load=useCallback(async()=>{const db=createClient();if(!db){setError("Supabase is not configured.");setLoading(false);return;}const {data:{user}}=await db.auth.getUser();if(!user){setError("Sign in to manage profile-sharing permissions.");setLoading(false);return;}const [{data:a,error:ae},{data:c,error:ce}]=await Promise.all([
  db.from("wc_employer_applications").select("id,job_id,job:wc_employer_jobs(id,organization_id,title,wc_organizations(name))").eq("candidate_id",user.id).order("applied_at",{ascending:false}),
  db.from("wc_candidate_profile_consents").select("id,organization_id,application_id,shared_fields,granted_at,expires_at,revoked_at").eq("candidate_id",user.id).order("granted_at",{ascending:false})
- ]);if(ae||ce){setError(ae?.message||ce?.message||"Could not load sharing settings. Apply the Phase 4 migration.");setLoading(false);return;}const rows=(a||[]).map((x:any)=>({id:x.id,organization_id:x.job?.organization_id,job:x.job})).filter((x:any)=>x.organization_id) as Application[];setApps(rows);setConsents((c||[]) as Consent[]);if(rows.length&&!org)setOrg(rows[0].organization_id);setLoading(false);},[]);
+ ]);if(ae||ce){setError(ae?.message||ce?.message||"Could not load sharing settings. Apply the Phase 4 migration.");setLoading(false);return;}const applicationRows=(a||[]) as unknown as ApplicationQueryRow[];const rows:Application[]=applicationRows.flatMap(x=>x.job?.organization_id?[{id:x.id,organization_id:x.job.organization_id,job:{title:x.job.title,wc_organizations:x.job.wc_organizations}}]:[]);setApps(rows);setConsents((c||[]) as Consent[]);if(rows.length)setOrg(current=>current||rows[0].organization_id);setLoading(false);},[]);
  useEffect(()=>{void load();},[load]);
  async function grant(){const db=createClient();if(!db||!org)return;setBusy(true);setError("");setNotice("");const {error:e}=await db.rpc("wc_candidate_grant_profile_consent",{p_organization_id:org,p_application_id:application||null,p_shared_fields:chosen});if(e)setError(e.message);else{setNotice("Profile-sharing permission granted. You can revoke it at any time.");setChosen(["basic_profile"]);await load();}setBusy(false);}
  async function revoke(id:string){const db=createClient();if(!db)return;setBusy(true);const {error:e}=await db.rpc("wc_candidate_revoke_profile_consent",{p_consent_id:id});if(e)setError(e.message);else{setNotice("Profile-sharing permission revoked.");await load();}setBusy(false);}
