@@ -11,7 +11,7 @@ export default function AccountSecurityControls() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [factors, setFactors] = useState<Array<{ id: string; factor_type: string; status: string; friendly_name?: string }>>([]);
+  const [factors, setFactors] = useState<Array<{ id: string; factor_type: string; status: string; friendly_name?: string | null }>>([]);
   const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
   const [challengeId, setChallengeId] = useState("");
   const [code, setCode] = useState("");
