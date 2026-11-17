@@ -109,7 +109,7 @@ export default function SafetyPage() {
         <>
           <section className="opportunity-card safety-card">
             <h2><UserRoundX size={18} /> Block a member</h2>
-            <p>Blocking is a personal safety setting. It records your choice; it does not automatically remove the member's public content or guarantee that every interaction surface is hidden until blocking is integrated across the app.</p>
+            <p>Blocking is a personal safety setting. It records your choice; it does not automatically remove the member&apos;s public content or guarantee that every interaction surface is hidden until blocking is integrated across the app.</p>
             <form onSubmit={blockMember} className="safety-form">
               <label htmlFor="block-username">Member username</label>
               <div className="safety-inline"><input id="block-username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="e.g. username" maxLength={30} /><button disabled={busy}>{busy ? "Please wait…" : "Block member"}</button></div>
