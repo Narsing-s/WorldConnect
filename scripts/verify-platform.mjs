@@ -133,9 +133,9 @@ check("Every tracked SQL migration is non-empty", () => {
 
 check("CI uses read-only repository permissions and bounded execution", () => {
   const workflow = read(".github/workflows/ci.yml");
-  assert.match(workflow, /permissions:\\s*contents:\\s*read/i);
-  assert.match(workflow, /timeout-minutes:\\s*20/);
-  assert.match(workflow, /cancel-in-progress:\\s*true/);
+  assert.match(workflow, /permissions:\s*contents:\s*read/i);
+  assert.match(workflow, /timeout-minutes:\s*20/);
+  assert.match(workflow, /cancel-in-progress:\s*true/);
 });
 
 check("Privacy page discloses public media and missing self-service deletion", () => {
