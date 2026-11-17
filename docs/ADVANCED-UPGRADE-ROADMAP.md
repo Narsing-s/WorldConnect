@@ -39,6 +39,7 @@ For a new Supabase project, apply:
 9. `supabase/migrations/20261121_employer_workspace.sql`
 10. `supabase/migrations/20261122_employer_collaboration.sql`
 11. `supabase/migrations/20261123_trust_safety_foundation.sql`
+12. `supabase/migrations/20261124_moderation_audit_trail.sql`
 
 For an existing project, compare the live schema before applying any script. Apply each missing migration once, in the order above. The data-integrity guardrails depend on both the tracker and candidate-preferences tables even though the filename date sorts earlier. Do not blindly rerun one-off repair scripts.
 
@@ -113,6 +114,7 @@ Keep these capabilities inside existing Jobs, Profile, Messages, and Communities
 - [x] Add member-controlled block records with owner-only read/create/delete policies.
 - [x] Add content-report intake with controlled categories, private reporter history, and reviewer-only database access.
 - [x] Add a member Safety Centre for blocking, reporting, and viewing submitted report status.
+- [x] Add a trusted-reviewer moderation queue and immutable report status audit events.
 - [ ] Enforce blocks consistently in feed, member search, communities, messaging, and notifications before claiming blocking is full protection.
 - [ ] Add reviewer moderation queue with auditable decisions, appeal handling, and retention controls.
 
