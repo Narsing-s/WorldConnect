@@ -87,6 +87,17 @@ check("Employer collaboration protects invitations, interviews, consent and revi
   assert.match(sql, /wc_candidate_revoke_profile_consent/i);
   assert.match(sql, /worldconnect_role',''\)='reviewer'/i);
   assert.match(sql, /security_invoker=true/i);
+  assert.match(sql, /wc_employer_analytics with \(security_invoker=true\)/i);
+  const operations = read("app/recruiter/operations/page.tsx");
+  assert.match(operations, /wc_create_organization_invitation/);
+  assert.match(operations, /wc_schedule_employer_interview/);
+  assert.match(operations, /wc_employer_analytics/);
+  assert.match(operations, /wc_revoke_organization_invitation/);
+  const sharing = read("app/career-sharing/page.tsx");
+  assert.match(sharing, /wc_candidate_grant_profile_consent/);
+  assert.match(sharing, /wc_candidate_revoke_profile_consent/);
+  const inviteAcceptance = read("app/recruiter/invitations/accept/page.tsx");
+  assert.match(inviteAcceptance, /wc_accept_organization_invitation/);
   const admin = read("app/admin/verifications/page.tsx");
   assert.match(admin, /worldconnect_role/);
   assert.match(admin, /wc_review_organization_verification/);
