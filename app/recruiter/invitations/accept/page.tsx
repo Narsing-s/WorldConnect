@@ -2,7 +2,7 @@
 import { useEffect,useState } from "react";
 import Link from "next/link";
 
-import { CheckCircle2,LoaderCircle,ShieldCheck } from "lucide-react";
+import { CheckCircle2,ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 export default function AcceptRecruiterInvitationPage(){
  const [status,setStatus]=useState("Checking invitation…");const [error,setError]=useState("");
