@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase";
 
 type Thread={id:string;userId:string;label:string;username:string;last:string;lastAt:string;unreadCount:number};
 type ProfileSummary={id:string;display_name:string|null;username:string|null;avatar_url?:string|null};
-type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string;attachment_url?:string|null;attachment_name?:string|null;attachment_type?:string|null;delivery_status?:"sending"|"sent"|"failed"};
+type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string;attachment_url?:string|null;attachment_name?:string|null;attachment_type?:string|null;attachment_display_url?:string|null;delivery_status?:"sending"|"sent"|"failed"};
 
 export default function MessagesPage(){
  const [userId,setUserId]=useState("");
@@ -26,6 +26,22 @@ export default function MessagesPage(){
  const [realtimeState,setRealtimeState]=useState<"connecting"|"connected"|"fallback">("connecting");
  const attachmentInput=useRef<HTMLInputElement>(null);
  const lastPolledIncoming=useRef("");
+ const signedAttachmentCache=useRef(new Map<string,{url:string;expiresAt:number}>());
+
+ const resolveMessageAttachments=useCallback(async(items:Message[])=>{
+  const supabase=createClient();if(!supabase)return items;
+  return Promise.all(items.map(async message=>{
+   const stored=message.attachment_url;
+   if(!stored)return message;
+   if(/^https?:\/\//i.test(stored))return {...message,attachment_display_url:stored};
+   const cached=signedAttachmentCache.current.get(stored);
+   if(cached&&cached.expiresAt>Date.now()+60000)return {...message,attachment_display_url:cached.url};
+   const {data,error}=await supabase.storage.from("worldconnect-private-media").createSignedUrl(stored,3600);
+   if(error||!data?.signedUrl)return {...message,attachment_display_url:null};
+   signedAttachmentCache.current.set(stored,{url:data.signedUrl,expiresAt:Date.now()+55*60*1000});
+   return {...message,attachment_display_url:data.signedUrl};
+  }));
+ },[]);
 
   const load=useCallback(async()=>{
   const supabase=createClient();
@@ -125,7 +141,7 @@ export default function MessagesPage(){
     .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
     .eq("conversation_id",selected).order("created_at",{ascending:false}).order("id",{ascending:false}).limit(100);
    if(!data)return;
-   const latest=(data as Message[]).reverse();
+   const latest=await resolveMessageAttachments((data as Message[]).reverse());
    const newestIncoming=[...latest].reverse().find(message=>message.sender_id!==userId);
    if(newestIncoming){const incomingKey=selected+":"+newestIncoming.id;if(lastPolledIncoming.current!==incomingKey){lastPolledIncoming.current=incomingKey;void markConversationRead(selected);}}
    setMessages(current=>{
@@ -135,7 +151,7 @@ export default function MessagesPage(){
    });
   },4000);
   return()=>{window.clearInterval(fallbackPoll);void supabase.removeChannel(channel);};
- },[userId,selected,markConversationRead]);
+ },[userId,selected,markConversationRead,resolveMessageAttachments]);
 
  useEffect(()=>{
   if(!userId)return;
@@ -188,7 +204,7 @@ export default function MessagesPage(){
     const {data,error}=await request;
     if(!active)return;
     if(error){setNotice("Could not load chat history: "+error.message);break;}
-    const page=(data||[]) as Message[];
+    const page=await resolveMessageAttachments((data||[]) as Message[]);
     collected.push(...page);
     if(active){
      setMessages(current=>{
@@ -207,11 +223,11 @@ export default function MessagesPage(){
    .on("postgres_changes",{event:"INSERT",schema:"public",table:"wc_messages",filter:`conversation_id=eq.${selected}`},payload=>{
     const incoming=payload.new as Message;
     if(incoming.sender_id===userId)return;
-    setMessages(current=>current.some(message=>message.id===incoming.id)?current:[...current,incoming].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id)));
+    void resolveMessageAttachments([incoming]).then(([resolved])=>setMessages(current=>current.some(message=>message.id===resolved.id)?current:[...current,resolved].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id.localeCompare(b.id))));
    })
    .subscribe();
   return()=>{active=false;void supabase.removeChannel(channel);};
- },[selected,userId]);
+ },[selected,userId,resolveMessageAttachments]);
 
  async function searchMembers(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
@@ -304,20 +320,19 @@ export default function MessagesPage(){
   const body=draft.trim()||file.name;
   const temporaryId=`pending-file-${crypto.randomUUID()}`;
   const previewUrl=URL.createObjectURL(file);
-  const optimistic:Message={id:temporaryId,conversation_id:conversationAtSend,sender_id:userId,body,created_at:new Date().toISOString(),attachment_url:previewUrl,attachment_name:file.name,attachment_type:file.type};
+  const optimistic:Message={id:temporaryId,conversation_id:conversationAtSend,sender_id:userId,body,created_at:new Date().toISOString(),attachment_url:previewUrl,attachment_display_url:previewUrl,attachment_name:file.name,attachment_type:file.type};
   setMessages(current=>[...current,optimistic]);
   setUploading(true);setNotice("");
   const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"attachment";
-  const path=`${userId}/messages/${Date.now()}-${safeName}`;
-  const {error:uploadError}=await supabase.storage.from("worldconnect-media").upload(path,file,{contentType:file.type,upsert:false});
+  const path=`${userId}/messages/${conversationAtSend}/${Date.now()}-${safeName}`;
+  const {error:uploadError}=await supabase.storage.from("worldconnect-private-media").upload(path,file,{contentType:file.type,upsert:false});
   if(uploadError){
    URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
    setUploading(false);setNotice("Attachment upload failed: "+uploadError.message);return;
   }
-  const {data:publicData}=supabase.storage.from("worldconnect-media").getPublicUrl(path);
   const messageId=crypto.randomUUID();
   const {data,error:messageError}=await supabase.from("wc_messages")
-   .insert({id:messageId,conversation_id:conversationAtSend,sender_id:userId,body,attachment_url:publicData.publicUrl,attachment_name:file.name,attachment_type:file.type})
+   .insert({id:messageId,conversation_id:conversationAtSend,sender_id:userId,body,attachment_url:path,attachment_name:file.name,attachment_type:file.type})
    .select("id,conversation_id,sender_id,body,created_at,attachment_url,attachment_name,attachment_type")
    .single();
   let savedMessage=data as Message|null;
@@ -328,8 +343,10 @@ export default function MessagesPage(){
    savedMessage=existing as Message|null;
   }
   setUploading(false);
+  if(savedMessage){[savedMessage]=await resolveMessageAttachments([savedMessage]);}
   if(!savedMessage){
    URL.revokeObjectURL(previewUrl);setMessages(current=>current.filter(message=>message.id!==temporaryId));
+   await supabase.storage.from("worldconnect-private-media").remove([path]);
    setNotice("File uploaded, but the message could not be saved: "+(messageError?.message||"No message record was returned"));return;
   }
   URL.revokeObjectURL(previewUrl);
@@ -355,7 +372,7 @@ export default function MessagesPage(){
   {notice&&<p className="feature-notice" role="status">{notice}</p>}
   <section className="messages-layout">
    <aside className="thread-list">{threads.map(thread=><button key={thread.id} className={selected===thread.id?"thread-active":""} onClick={()=>setSelected(thread.id)}><strong><i className={isOnline(thread.userId)?"presence-dot is-online":"presence-dot"} aria-label={isOnline(thread.userId)?"Online":"Offline"}/>{thread.label}{thread.unreadCount>0&&<em className="thread-count" aria-label={`${thread.unreadCount} unread messages`}>{thread.unreadCount}</em>}</strong><small>@{thread.username} · {isOnline(thread.userId)?"Online":"Offline"}</small><span>{thread.last}</span></button>)}</aside>
-   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {realtimeState==="connected"?"Live updates":"Syncing messages"}</small></header><div className="chat-messages">{loadingHistory&&<p className="chat-history-loading">Loading complete chat history…</p>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_url} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_url} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_url} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}{message.sender_id===userId&&message.delivery_status==="sending"?" · Sending…":message.sender_id===userId&&message.delivery_status==="sent"?" · Sent":""}</time>{message.sender_id===userId&&message.delivery_status==="failed"&&<button type="button" className="message-retry" onClick={()=>void retryMessage(message)}>Not delivered · Retry</button>}</div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
+   <div className="chat-panel">{active?<><header><Link href={`/members/${encodeURIComponent(active.username)}`}><strong><i className={isOnline(active.userId)?"presence-dot is-online":"presence-dot"}/>{active.label}</strong></Link><small>@{active.username} · {isOnline(active.userId)?"Online":"Offline"} · {realtimeState==="connected"?"Live updates":"Syncing messages"}</small></header><div className="chat-messages">{loadingHistory&&<p className="chat-history-loading">Loading complete chat history…</p>}{messages.map(message=><div key={message.id} className={message.sender_id===userId?"message-own":"message-other"}>{message.attachment_display_url&&message.attachment_type?.startsWith("image/")&&<a href={message.attachment_display_url||undefined} target="_blank" rel="noreferrer"><img className="chat-attachment-image" src={message.attachment_display_url||""} alt={message.attachment_name||"Image attachment"}/></a>}{message.attachment_display_url&&message.attachment_type?.startsWith("video/")&&<video className="chat-attachment-video" src={message.attachment_display_url||""} controls preload="metadata"/>}{message.body}<time>{new Date(message.created_at).toLocaleString()}{message.sender_id===userId&&message.delivery_status==="sending"?" · Sending…":message.sender_id===userId&&message.delivery_status==="sent"?" · Sent":""}</time>{message.sender_id===userId&&message.delivery_status==="failed"&&<button type="button" className="message-retry" onClick={()=>void retryMessage(message)}>Not delivered · Retry</button>}</div>)}</div><form className="chat-compose" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} maxLength={4000} placeholder="Write a message…"/><input ref={attachmentInput} type="file" accept="image/*,video/*" hidden onChange={attachFile}/><button type="button" className="chat-attach" aria-label="Attach image or video" title="Attach image or video" disabled={uploading} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/></button><button className="feature-primary" aria-label="Send message" disabled={uploading||!draft.trim()}>{uploading?<LoaderCircle className="auth-spin"/>:<Send size={16}/>}</button></form></>:<div className="chat-empty"><MessageCircle size={28}/><strong>Select a conversation</strong><span>Search for a member above to start chatting.</span></div>}</div>
   </section>
  </main>;
 }

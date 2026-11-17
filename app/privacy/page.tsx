@@ -10,7 +10,7 @@ const sections = [
   {
     icon: ImageIcon,
     title: "Posts, messages and uploaded media",
-    body: "Posts, comments, likes, follows, saved posts, community memberships, opportunities and messages are stored in the WorldConnect database. Private message records are protected by conversation-member database policies. Important: the current worldconnect-media storage bucket is publicly readable. Anyone who obtains a media URL may be able to view that uploaded file, including message attachments. Do not upload identity documents, financial records, private resumes or other sensitive files.",
+    body: "Posts, comments, likes, follows, saved posts, community memberships, opportunities and messages are stored in the WorldConnect database. Private message records are protected by conversation-member database policies. Important: the current worldconnect-media storage bucket is publicly readable. Anyone who obtains a media URL may be able to view files already stored there, including older message attachments. New chat attachments use a separate private bucket after the private-chat migration is applied. Do not upload identity documents, financial records, private resumes or other sensitive files until the remaining storage migration is complete.",
   },
   {
     icon: BriefcaseBusiness,

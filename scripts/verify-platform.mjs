@@ -28,6 +28,7 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261122_employer_collaboration.sql",
     "supabase/migrations/20261123_trust_safety_foundation.sql",
     "supabase/migrations/20261124_moderation_audit_trail.sql",
+    "supabase/migrations/20261125_private_chat_attachments.sql",
   ]) read(path);
 });
 
@@ -161,6 +162,19 @@ check("Trust and safety migration protects blocks and reports", () => {
   assert.ok(page.includes("Submit report"));
   assert.ok(page.includes("Block a member"));
   assert.ok(page.includes("not yet enforced across every part"));
+});
+
+check("New chat attachments use private storage and signed URLs", () => {
+  const sql = read("supabase/migrations/20261125_private_chat_attachments.sql");
+  assert.ok(sql.includes("public = false"));
+  assert.ok(sql.includes("worldconnect-private-media"));
+  assert.ok(sql.includes("wc_conversation_members"));
+  assert.ok(sql.includes("file_size_limit"));
+  const messages = read("app/messages/page.tsx");
+  assert.ok(messages.includes("createSignedUrl"));
+  assert.ok(messages.includes("worldconnect-private-media"));
+  assert.ok(messages.includes("attachment_display_url"));
+  assert.ok(messages.includes("attachment_url:path"));
 });
 
 check("Privacy page discloses public media and missing self-service deletion", () => {
