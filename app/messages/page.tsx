@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, Send, Search, LoaderCircle, UserRound, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -27,7 +27,7 @@ export default function MessagesPage(){
  const attachmentInput=useRef<HTMLInputElement>(null);
  const lastPolledIncoming=useRef("");
 
- async function load(){
+ const load=useCallback(async()=>{
   const supabase=createClient();
   if(!supabase){setNotice("Connect Supabase and run the database setup to enable messages.");return;}
   const {data:{user}}=await supabase.auth.getUser();
@@ -85,7 +85,7 @@ export default function MessagesPage(){
   return()=>{void supabase.removeChannel(channel);};
  },[userId]);
 
- async function markConversationRead(conversationId:string){
+ const markConversationRead=useCallback(async(conversationId:string)=>{
   if(!userId||!conversationId)return;
   const supabase=createClient();if(!supabase)return;
   const readAt=new Date().toISOString();
@@ -132,7 +132,7 @@ export default function MessagesPage(){
    });
   },4000);
   return()=>{window.clearInterval(fallbackPoll);void supabase.removeChannel(channel);};
- },[userId,selected]);
+ },[userId,selected,markConversationRead]);
 
  useEffect(()=>{
   if(!userId)return;
