@@ -161,7 +161,8 @@ check("Trust and safety migration protects blocks and reports", () => {
   const page = read("app/safety/page.tsx");
   assert.ok(page.includes("Submit report"));
   assert.ok(page.includes("Block a member"));
-  assert.ok(page.includes("not yet enforced across every part"));
+  assert.ok(page.includes("does not automatically remove public content from that member"));
+  assert.ok(page.includes("Full feed, search, messaging and notification enforcement"));
 });
 
 check("New chat attachments use private storage and signed URLs", () => {
