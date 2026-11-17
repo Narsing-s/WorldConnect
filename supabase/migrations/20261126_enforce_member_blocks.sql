@@ -9,9 +9,13 @@ stable
 security definer
 set search_path = ''
 as $$
-  select user_a is not null
+  -- The caller may only inspect a relationship involving their own account.
+  -- This also makes the helper safe to invoke from public-read RLS policies.
+  select auth.uid() is not null
+     and user_a is not null
      and user_b is not null
      and user_a <> user_b
+     and (user_a = auth.uid() or user_b = auth.uid())
      and exists (
        select 1
        from public.wc_user_blocks b
@@ -20,8 +24,8 @@ as $$
      );
 $$;
 
-revoke all on function public.wc_is_blocked_between(uuid, uuid) from public, anon;
-grant execute on function public.wc_is_blocked_between(uuid, uuid) to authenticated;
+revoke all on function public.wc_is_blocked_between(uuid, uuid) from public;
+grant execute on function public.wc_is_blocked_between(uuid, uuid) to anon, authenticated;
 
 -- Profiles, feed posts, and public opportunities are hidden from either side
 -- of a block for signed-in viewers. Anonymous public browsing is unchanged.
