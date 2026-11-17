@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Globe2, LoaderCircle, Save, LogOut, Camera, BriefcaseBusiness } from "lucide-react";
+import { ArrowLeft, Globe2, LoaderCircle, Save, LogOut, Camera, BriefcaseBusiness, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 type Profile = { username: string; display_name: string; bio: string; avatar_url: string | null; country: string | null };
@@ -93,7 +93,7 @@ export default function ProfilePage() {
     <section className="profile-card">
       <div className="profile-page-brand"><Globe2 size={24}/> world<span>connect</span></div>
       <h1>Your profile</h1>
-      <Link href="/portfolio" className="profile-portfolio-link"><BriefcaseBusiness size={16}/> Manage professional portfolio</Link>
+      <Link href="/portfolio" className="profile-portfolio-link"><BriefcaseBusiness size={16}/> Manage professional portfolio</Link><Link href="/career-sharing" className="profile-portfolio-link"><ShieldCheck size={16}/> Profile-sharing permissions</Link>
       <p>Choose how people around the world see you.</p>
       {loading ? <div className="profile-loading"><LoaderCircle className="auth-spin"/> Loading profile…</div> : <>
       <div className="profile-social-stats" aria-label="Your social connections">
