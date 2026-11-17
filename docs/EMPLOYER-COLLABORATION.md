@@ -8,13 +8,15 @@ Apply `supabase/migrations/20261122_employer_collaboration.sql` after the Phase 
 - **Verification review UI:** `/admin/verifications` displays pending requests to trusted reviewers and provides approve/reject actions. Reviewer role is checked in the UI and enforced again by database RLS/RPC.
 - **Interview scheduling backend:** organization members can schedule future interviews against their applications. Candidates and the relevant employer team can read interview details. The SQL rejects past dates and invalid durations.
 - **Candidate-controlled profile sharing:** candidates explicitly grant selected sections (basic profile, skills, portfolio, experience, certifications) to a specific organization, optionally tied to an application. Consent expires after 30 days by default and can be revoked. This is an auditable permission record; it does not copy or automatically expose resume files or private Career Assistant content.
-- **Employer analytics:** `wc_employer_analytics` aggregates published jobs and application pipeline counts per organization, scoped by caller membership and invoker RLS.
+- **Employer analytics:** `wc_employer_analytics` aggregates published jobs and application pipeline counts per organization, scoped by caller membership and invoker RLS. The recruiter operations screen displays these counts.
+- **Interactive recruiter operations:** `/recruiter/operations` provides invitation creation/revocation, interview scheduling, upcoming interview visibility and pipeline analytics. `/recruiter/invitations/accept?token=...` accepts an email-bound invitation after the invited user signs in.
+- **Candidate sharing controls:** `/career-sharing`, linked from Profile, lists companies the candidate applied to, allows selection of profile sections, and shows/revokes active permissions.
 
 ## Secure setup and integration requirements
 
 1. Provision `app_metadata.worldconnect_role = "reviewer"` only through a trusted Supabase administrative environment/service role. Never expose service-role credentials in the browser or add a client-side role editor.
-2. Invitation token delivery must be implemented by a trusted server endpoint/email provider. The SQL RPC returns the raw token once and stores only its hash. Do not log the token or send mail from the browser using privileged credentials.
-3. Before displaying candidate profile sections to an employer, the application must enforce an active, unexpired consent and select only the approved fields. Consent does not grant blanket access to resumes, messages, or private workspace data.
+2. The operations page creates a single-use invitation URL and displays it once for the owner to copy and send privately. Automatic email delivery is not implemented; add it only through a trusted server endpoint/email provider. The SQL RPC returns the raw token once and stores only its hash. Do not log the token or send mail from the browser using privileged credentials.
+3. The candidate sharing page creates/revokes permission records. Before displaying candidate profile sections to an employer, any employer-facing profile UI/API must enforce active, unexpired consent and select only approved fields. Consent does not grant blanket access to resumes, messages, or private workspace data; this PR does not implement an employer profile viewer.
 4. Interview meeting URLs and notes are visible to the candidate and relevant organization members. Do not put passwords or sensitive access codes in notes.
 5. Apply this migration once in Supabase SQL Editor after confirming Phase 3 is present.
 
@@ -26,4 +28,4 @@ Apply `supabase/migrations/20261122_employer_collaboration.sql` after the Phase 
 - Candidate and relevant employer members can see an interview; unrelated employers cannot.
 - Candidate can grant and revoke consent; an employer sees only active consent metadata for its organization.
 - Analytics counts match test records and do not reveal another organization's totals.
-- Run `npm run lint`, `npm run verify:platform`, and `npm run build`; then test with unrelated accounts in Supabase.
+- Run `npm run lint`, `npm run verify:platform`, and `npm run build`; then test with unrelated accounts in Supabase. Confirm a candidate can manage only their own consent and a recruiter can schedule interviews only for their organization applications.
