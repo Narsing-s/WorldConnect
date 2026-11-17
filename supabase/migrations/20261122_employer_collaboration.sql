@@ -93,7 +93,7 @@ returns text language plpgsql security definer set search_path='' as $$
 declare v_user uuid:=auth.uid(); v_token text; v_email text:=lower(btrim(coalesce(p_email,'')));
 begin
   if v_user is null then raise exception 'Sign in required'; end if;
-  if v_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$' then raise exception 'Enter a valid email address'; end if;
+  if v_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$' then raise exception 'Enter a valid email address'; end if;
   if not exists(select 1 from public.wc_organization_members where organization_id=p_organization_id and user_id=v_user and role='owner') then raise exception 'Only an organization owner can invite recruiters'; end if;
   if exists(select 1 from public.wc_organization_members m join auth.users u on u.id=m.user_id where m.organization_id=p_organization_id and lower(u.email)=v_email) then raise exception 'This person is already a member'; end if;
   if exists(select 1 from public.wc_organization_invitations where organization_id=p_organization_id and invited_email=v_email and status='pending' and expires_at>now()) then raise exception 'An active invitation already exists'; end if;
