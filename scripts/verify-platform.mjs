@@ -203,15 +203,15 @@ check("Privacy page discloses public media and accurately scopes self-service da
   assert.match(page, /publicly readable/i);
   assert.match(page, /Do not upload identity documents/i);
   assert.match(page, /not yet a complete archive/i);
-  assert.match(page, /Full account deletion[\\s\\S]*require additional server-side work/i);
+  assert.ok(page.includes("Full account deletion") && page.includes("require additional server-side work"));
   assert.match(page, /private to the signed-in member/i);
-  assert.match(page, /<PrivacyControls\\s*\\/>/);
-  assert.match(controls, /Download your data/);
-  assert.match(controls, /Export data/);
-  assert.match(controls, /Delete private career workspace/);
+  assert.ok(page.includes("<PrivacyControls />"));
+  assert.ok(controls.includes("Download your data"));
+  assert.ok(controls.includes("Export data"));
+  assert.ok(controls.includes("Delete private career workspace"));
   assert.match(controls, /does not delete your account/i);
-  assert.match(controls, /Full account deletion[\\s\\S]*not represented as available/i);
-  assert.match(controls, /\.eq\\("user_id", userId\\)/);
+  assert.ok(controls.includes("Full account deletion") && controls.includes("not represented as available"));
+  assert.ok(controls.includes('.eq("user_id", userId)'));
 });
 
 for (const item of checks) {
