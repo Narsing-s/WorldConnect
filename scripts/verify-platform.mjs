@@ -174,6 +174,7 @@ check("Member blocks are enforced by RLS across discovery, communities and messa
   for (const table of ["wc_profiles", "wc_posts", "wc_comments", "wc_post_likes", "wc_follows", "wc_communities", "wc_community_members", "wc_opportunities"]) {
     assert.match(sql, new RegExp("drop policy if exists[\\s\\S]{0,120}on public\\." + table, "i"));
   }
+  assert.match(sql, /Users manage own memberships[\\s\\S]*wc_is_blocked_between/i);
   assert.match(sql, /function public\\.wc_is_conversation_member/i);
   assert.match(sql, /function public\\.wc_start_conversation/i);
   assert.match(sql, /wc_is_blocked_between\\(current_user_id, target_user\\)/i);
