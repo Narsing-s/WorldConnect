@@ -109,7 +109,7 @@ export default function SafetyPage() {
         <>
           <section className="opportunity-card safety-card">
             <h2><UserRoundX size={18} /> Block a member</h2>
-            <p>Blocking now applies at the database access layer: signed-in members on either side of a block cannot discover each other's profiles, posts, comments, reactions, follows, community memberships, opportunities, notifications or direct conversations. Blocking does not delete existing content or guarantee removal of previously shared public media URLs.</p>
+            <p>Blocking now applies at the database access layer: signed-in members on either side of a block cannot discover each other&apos;s profiles, posts, comments, reactions, follows, community memberships, opportunities, notifications or direct conversations. Blocking does not delete existing content or guarantee removal of previously shared public media URLs.</p>
             <form onSubmit={blockMember} className="safety-form">
               <label htmlFor="block-username">Member username</label>
               <div className="safety-inline"><input id="block-username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="e.g. username" maxLength={30} /><button disabled={busy}>{busy ? "Please wait…" : "Block member"}</button></div>
