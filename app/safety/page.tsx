@@ -55,7 +55,7 @@ export default function SafetyPage() {
     }
     void init();
     return () => { active = false; };
-  }, []);
+  }, [refresh]);
 
   async function blockMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
