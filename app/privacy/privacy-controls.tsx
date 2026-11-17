@@ -11,20 +11,20 @@ type ExportTable = {
 };
 
 const exportTables: ExportTable[] = [
-  { name: "profile", load: (db, id) => db!.from("wc_profiles").select("*").eq("id", id) },
-  { name: "posts", load: (db, id) => db!.from("wc_posts").select("*").eq("author_id", id) },
-  { name: "comments", load: (db, id) => db!.from("wc_comments").select("*").eq("author_id", id) },
-  { name: "likes", load: (db, id) => db!.from("wc_post_likes").select("*").eq("user_id", id) },
-  { name: "follows", load: (db, id) => db!.from("wc_follows").select("*").or(`follower_id.eq.${id},following_id.eq.${id}`) },
-  { name: "blocked_members", load: (db, id) => db!.from("wc_user_blocks").select("*").eq("blocker_id", id) },
-  { name: "content_reports", load: (db, id) => db!.from("wc_content_reports").select("*").eq("reporter_id", id) },
-  { name: "job_applications", load: (db, id) => db!.from("wc_job_applications").select("*").eq("user_id", id) },
-  { name: "candidate_preferences", load: (db, id) => db!.from("wc_candidate_preferences").select("*").eq("user_id", id) },
-  { name: "career_workspace", load: (db, id) => db!.from("wc_career_workspaces").select("*").eq("user_id", id) },
-  { name: "portfolio_entries", load: (db, id) => db!.from("wc_portfolio_entries").select("*").eq("user_id", id) },
-  { name: "community_memberships", load: (db, id) => db!.from("wc_community_members").select("*").eq("user_id", id) },
-  { name: "employer_applications_as_candidate", load: (db, id) => db!.from("wc_employer_applications").select("*").eq("candidate_id", id) },
-  { name: "profile_sharing_consents", load: (db, id) => db!.from("wc_candidate_profile_consents").select("*").eq("candidate_id", id) },
+  { name: "profile", load: async (db, id) => db!.from("wc_profiles").select("*").eq("id", id) },
+  { name: "posts", load: async (db, id) => db!.from("wc_posts").select("*").eq("author_id", id) },
+  { name: "comments", load: async (db, id) => db!.from("wc_comments").select("*").eq("author_id", id) },
+  { name: "likes", load: async (db, id) => db!.from("wc_post_likes").select("*").eq("user_id", id) },
+  { name: "follows", load: async (db, id) => db!.from("wc_follows").select("*").or(`follower_id.eq.${id},following_id.eq.${id}`) },
+  { name: "blocked_members", load: async (db, id) => db!.from("wc_user_blocks").select("*").eq("blocker_id", id) },
+  { name: "content_reports", load: async (db, id) => db!.from("wc_content_reports").select("*").eq("reporter_id", id) },
+  { name: "job_applications", load: async (db, id) => db!.from("wc_job_applications").select("*").eq("user_id", id) },
+  { name: "candidate_preferences", load: async (db, id) => db!.from("wc_candidate_preferences").select("*").eq("user_id", id) },
+  { name: "career_workspace", load: async (db, id) => db!.from("wc_career_workspaces").select("*").eq("user_id", id) },
+  { name: "portfolio_entries", load: async (db, id) => db!.from("wc_portfolio_entries").select("*").eq("user_id", id) },
+  { name: "community_memberships", load: async (db, id) => db!.from("wc_community_members").select("*").eq("user_id", id) },
+  { name: "employer_applications_as_candidate", load: async (db, id) => db!.from("wc_employer_applications").select("*").eq("candidate_id", id) },
+  { name: "profile_sharing_consents", load: async (db, id) => db!.from("wc_candidate_profile_consents").select("*").eq("candidate_id", id) },
 ];
 
 export default function PrivacyControls() {
