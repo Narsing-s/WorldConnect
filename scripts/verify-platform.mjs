@@ -242,6 +242,7 @@ check("Mentorship marketplace uses opt-in discovery and private request RPCs", (
   assert.match(page, /wc_request_mentorship/);
   assert.match(page, /wc_respond_mentorship_request/);
   assert.match(page, /Search mentors by skill, language or region/);
+  assert.ok(page.includes("mentorDisplayName(mentor)") && !page.includes("displayName(mentor)"));
   assert.match(page, /No resume or contact details are shared automatically/);
   const home = read("app/page.tsx");
   assert.ok(home.includes('"/mentorship"'));
