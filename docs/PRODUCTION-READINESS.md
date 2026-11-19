@@ -33,7 +33,6 @@ For a fresh Supabase project, apply these scripts one at a time:
 14. supabase/migrations/20261126_enforce_member_blocks.sql
 15. supabase/migrations/20261127_mentorship_marketplace.sql
 16. supabase/migrations/20261127000000_worldconnect_notification_rpc_hardening.sql
-15. supabase/migrations/20261127_mentorship_marketplace.sql
 
 The data-integrity guardrails have a date-based filename that sorts before candidate preferences, but depend on both the tracker and candidate-preferences tables. Apply them after both dependencies.
 
