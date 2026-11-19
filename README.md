@@ -92,3 +92,10 @@ Import this repository into Vercel, configure the Supabase public environment va
 ## Security
 
 Row-level security is enabled on WorldConnect data tables. Keep the Supabase service-role key private and never expose secrets in `NEXT_PUBLIC_*` variables.
+
+
+## Mentorship network
+
+The opt-in mentorship network lets members publish a mentor profile with a headline, short bio, skills, languages, region and availability. Profiles are hidden from discovery until the member explicitly enables requests. Members can send a private mentorship goal and choose weekly, monthly or one-time cadence; mentors can accept or decline, requesters can withdraw, and either participant can mark an accepted mentorship complete.
+
+For an existing database, apply `supabase/migrations/20261127_mentorship_marketplace.sql` only after confirming migrations through `20261126_enforce_member_blocks.sql` have been applied to the intended WorldConnect project. The migration is additive and uses the existing block-enforcement helper. It does not modify existing member content. Verify it with two separate test accounts before enabling the feature in production. Do not apply this migration to a different Supabase project.

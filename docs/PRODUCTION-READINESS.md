@@ -31,6 +31,7 @@ For a fresh Supabase project, apply these scripts one at a time:
 12. supabase/migrations/20261124_moderation_audit_trail.sql
 13. supabase/migrations/20261125_private_chat_attachments.sql
 14. supabase/migrations/20261126_enforce_member_blocks.sql
+15. supabase/migrations/20261127_mentorship_marketplace.sql
 
 The data-integrity guardrails have a date-based filename that sorts before candidate preferences, but depend on both the tracker and candidate-preferences tables. Apply them after both dependencies.
 
@@ -96,3 +97,8 @@ A release is ready only when GitHub Actions lint, platform verification and prod
 - Provider availability and job freshness depend on external providers.
 - Legacy public-media migration requires a trusted process with Storage access.
 - Account export/deletion, session management, MFA UX, appeals, mentorship, events, referrals, PWA and operational monitoring are not complete until their full implementation and tests exist.
+
+
+## Mentorship marketplace rollout
+
+The mentorship migration depends on `wc_is_blocked_between(uuid, uuid)` from the member-block migration. Apply it only after the block-enforcement migration is present in the intended project. Then verify opt-in discovery, private request visibility, accept/decline/withdraw/complete permissions, duplicate active-request prevention and blocked-member denial with two independent test accounts. No live WorldConnect Supabase project was available through the connected project list at the time this branch was prepared; do not infer deployment from the repository migration file.
