@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, CalendarDays, Check, Clock3, Handshake, LoaderCircle, MapPin, Search, Send, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, Clock3, Handshake, LoaderCircle, MapPin, Search, Send, ShieldCheck, UserRound, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import "./mentorship.css";
 
@@ -81,6 +81,10 @@ export default function MentorshipPage() {
 
   const myRequests = useMemo(() => requests.filter(item => item.requester_id === userId), [requests, userId]);
   const incomingRequests = useMemo(() => requests.filter(item => item.mentor_id === userId), [requests, userId]);
+  const displayName = (mentor: Mentor) => {
+    const profile = profileOf(mentor);
+    return profile?.display_name || profile?.username || "WorldConnect member";
+  };
   const visibleMentors = useMemo(() => {
     const query = discoveryQuery.trim().toLowerCase();
     if (!query) return mentors;
@@ -130,11 +134,6 @@ export default function MentorshipPage() {
     setSaving(false);
   }
 
-  const displayName = (mentor: Mentor) => {
-    const profile = profileOf(mentor);
-    return profile?.display_name || profile?.username || "WorldConnect member";
-  };
-
   return (
     <main className="feature-page mentorship-page">
       <Link href="/" className="feature-back"><ArrowLeft size={16}/> Back to WorldConnect</Link>
@@ -170,7 +169,7 @@ export default function MentorshipPage() {
             {visibleMentors.length ? <div className="mentor-cards">{visibleMentors.map(mentor => {
               const profile = profileOf(mentor);
               return <article className="opportunity-card mentor-card" key={mentor.user_id}>
-                <div className="mentor-person"><span className="mentor-avatar">{(displayName(mentor).trim()[0] || "W").toUpperCase()}</span><div><strong>{displayName(mentor)}</strong><small>@{profile?.username || "member"}{mentor.country || profile?.country ? ` · ${mentor.country || profile?.country}` : ""}</small></div><BadgeCheck size={18}/></div>
+                <div className="mentor-person"><span className="mentor-avatar">{(displayName(mentor).trim()[0] || "W").toUpperCase()}</span><div><strong>{displayName(mentor)}</strong><small>@{profile?.username || "member"}{mentor.country || profile?.country ? ` · ${mentor.country || profile?.country}` : ""}</small></div><UserRound size={18}/></div>
                 <h3>{mentor.headline || "Open to sharing professional experience"}</h3>
                 <p>{mentor.bio || "This member is open to mentoring conversations."}</p>
                 {!!mentor.skills.length && <div className="mentor-tags">{mentor.skills.map(skill => <span key={skill}>{skill}</span>)}</div>}
