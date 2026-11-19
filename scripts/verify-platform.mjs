@@ -236,10 +236,12 @@ check("Mentorship marketplace uses opt-in discovery and private request RPCs", (
   assert.match(sql, /wc_respond_mentorship_request/i);
   assert.match(sql, /revoke all on public\\.wc_mentorship_profiles, public\\.wc_mentorship_requests from public, anon/i);
   assert.match(sql, /wc_mentorship_one_active_request_idx/i);
+  assert.match(sql, /Daily mentorship request limit reached/i);
   const page = read("app/mentorship/page.tsx");
   assert.match(page, /accepting_requests: accepting/);
   assert.match(page, /wc_request_mentorship/);
   assert.match(page, /wc_respond_mentorship_request/);
+  assert.match(page, /Search mentors by skill, language or region/);
   assert.match(page, /No resume or contact details are shared automatically/);
   const home = read("app/page.tsx");
   assert.match(home, /label:"Mentorship"/);
