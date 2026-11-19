@@ -18,6 +18,10 @@ type Request = {
 };
 const listValue = (value: string, limit: number) => [...new Set(value.split(",").map(item => item.trim()).filter(Boolean))].slice(0, limit);
 const profileOf = (mentor: Mentor) => Array.isArray(mentor.profile) ? mentor.profile[0] : mentor.profile;
+const mentorDisplayName = (mentor: Mentor) => {
+  const profile = profileOf(mentor);
+  return profile?.display_name || profile?.username || "WorldConnect member";
+};
 
 export default function MentorshipPage() {
   const [userId, setUserId] = useState("");
@@ -81,16 +85,12 @@ export default function MentorshipPage() {
 
   const myRequests = useMemo(() => requests.filter(item => item.requester_id === userId), [requests, userId]);
   const incomingRequests = useMemo(() => requests.filter(item => item.mentor_id === userId), [requests, userId]);
-  const displayName = (mentor: Mentor) => {
-    const profile = profileOf(mentor);
-    return profile?.display_name || profile?.username || "WorldConnect member";
-  };
   const visibleMentors = useMemo(() => {
     const query = discoveryQuery.trim().toLowerCase();
     if (!query) return mentors;
     return mentors.filter(mentor => {
       const profile = profileOf(mentor);
-      return [displayName(mentor), profile?.username, mentor.headline, mentor.bio, mentor.country, profile?.country, ...mentor.skills, ...mentor.languages]
+      return [mentorDisplayName(mentor), profile?.username, mentor.headline, mentor.bio, mentor.country, profile?.country, ...mentor.skills, ...mentor.languages]
         .filter(Boolean).join(" ").toLowerCase().includes(query);
     });
   }, [mentors, discoveryQuery]);
