@@ -96,6 +96,10 @@ begin
   if public.wc_is_blocked_between(v_requester,p_mentor_id) then
     raise exception 'This mentorship request is unavailable';
   end if;
+  if (select count(*) from public.wc_mentorship_requests r
+      where r.requester_id=v_requester and r.created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'Daily mentorship request limit reached. Try again tomorrow';
+  end if;
   if exists (
     select 1 from public.wc_mentorship_requests r
     where r.mentor_id=p_mentor_id and r.requester_id=v_requester
