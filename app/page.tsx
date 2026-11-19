@@ -10,7 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   Bell, Bookmark, Compass, Globe2, Hash, Heart, Home, ImagePlus, MessageCircle,
   MoreHorizontal, Plus, Search, Send, ShieldCheck, Sparkles, Users, Video,
-  MessageSquareText, ArrowUpRight, X, Menu, Check, BriefcaseBusiness, UserRound, LogOut
+  MessageSquareText, ArrowUpRight, X, Menu, Check, BriefcaseBusiness, UserRound, LogOut, Handshake
 } from "lucide-react";
 
 type MemberSummary = {id:string;username:string;display_name:string|null;avatar_url:string|null;country:string|null};
@@ -382,7 +382,7 @@ export default function HomePage() {
     }
   }
   function selectFeedTab(next: string) { if ((next === "Following" || next === "Saved") && !user) { window.location.href = "/login"; return; } setTab(next); }
-  const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Jobs",icon:BriefcaseBusiness},{label:"Career Assistant",icon:Sparkles},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Integrations",icon:Globe2},{label:"Saved",icon:Bookmark}];
+  const navItems = [{label:"Home",icon:Home},{label:"Explore",icon:Compass},{label:"Communities",icon:Users},{label:"Messages",icon:MessageCircle},{label:"Jobs",icon:BriefcaseBusiness},{label:"Career Assistant",icon:Sparkles},{label:"Mentorship",icon:Handshake},{label:"Opportunities",icon:BriefcaseBusiness},{label:"Integrations",icon:Globe2},{label:"Saved",icon:Bookmark}];
 
   if (!authResolved) {
     return <main className="auth-page"><section className="auth-card" aria-live="polite"><div className="auth-brand"><span><Globe2 size={25}/></span>world<b>connect</b></div><h1>Preparing your world…</h1><p className="auth-subtitle">Checking your secure sign-in session.</p></section></main>;
@@ -417,7 +417,7 @@ export default function HomePage() {
       <div className="layout">
         <aside className={`left-sidebar ${mobileMenu ? "open" : ""}`}>
           <div className="sidebar-label">MENU</div>
-          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="Popular"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("Popular");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":label==="Jobs"?"/jobs":label==="Career Assistant"?"/career-assistant":label==="Integrations"?"/integrations":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
+          <nav>{navItems.map(({label,icon:Icon})=><button key={label} className={`nav-link ${(tab===label || (label==="Home" && tab==="Popular"))?"active":""}`} onClick={()=>{setMobileMenu(false);if(label==="Home"){setTab("Popular");return;}if(label==="Explore"){window.location.href="/explore";return;}if(label==="Saved"){selectFeedTab("Saved");return;}window.location.href=label==="Communities"?"/communities":label==="Messages"?"/messages":label==="Jobs"?"/jobs":label==="Career Assistant"?"/career-assistant":label==="Mentorship"?"/mentorship":label==="Integrations"?"/integrations":"/opportunities";}}><Icon size={19}/><span>{label}</span></button>)}</nav>
           <div className="sidebar-divider"/>
           <div className="sidebar-label">YOUR SPACES</div>
           <button className="space-link" onClick={()=>{window.location.href="/communities?space=Learning%20Circle";}}><span className="space-dot purple">✦</span>Learning Circle</button>
