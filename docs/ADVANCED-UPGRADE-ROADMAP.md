@@ -55,7 +55,7 @@ Next:
 
 ## Phase 4 — Professional growth and community
 
-- [ ] Mentorship discovery by skills, role, language and region, with consent-based requests and scheduling.
+- [x] Opt-in mentorship discovery by skills, language and region, with private consent-based requests and mentor-controlled accept/decline; scheduling remains a later enhancement.
 - [ ] Events/webinars with registration and reminders.
 - [ ] Referral requests/offers with abuse prevention and transparent status.
 - [ ] Skill endorsements with rate limits and relationship context.
@@ -101,3 +101,18 @@ For a fresh project, use the ordered list in Production Readiness. For an existi
 - Keep existing member content and IDs intact.
 - Never claim protection or production readiness until every relevant route, database policy, storage policy and test enforces it.
 - Repository commits cannot apply SQL to Supabase or change Vercel secrets; those are separate privileged operations.
+
+
+## Current branch delivery — Mentorship marketplace
+
+Branch: `feat/mentorship-marketplace`.
+
+Implemented in source:
+- Opt-in mentor profiles; profiles remain undiscoverable until the member explicitly enables requests.
+- Member-controlled headline, bio, skills, languages, region and availability.
+- Private mentorship requests with weekly, monthly or one-time cadence.
+- Mentor accept/decline, requester withdrawal and participant completion actions.
+- Database-enforced participant-only request reads, one active request per member pair, and block-aware discovery/request creation.
+- Primary navigation entry reuses the existing global navigation; no new top-level menu group is introduced.
+
+Release gate still pending: apply the new migration only to the verified WorldConnect Supabase project, then run two-account live RLS tests and confirm the Vercel preview. Repository source checks do not prove live database activation.
