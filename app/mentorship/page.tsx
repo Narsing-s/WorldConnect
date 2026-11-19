@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, CalendarDays, Check, Clock3, Handshake, LoaderCircle, MapPin, Send, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CalendarDays, Check, Clock3, Handshake, LoaderCircle, MapPin, Search, Send, ShieldCheck, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import "./mentorship.css";
 
@@ -30,6 +30,7 @@ export default function MentorshipPage() {
   const [country, setCountry] = useState("");
   const [availability, setAvailability] = useState("Flexible");
   const [accepting, setAccepting] = useState(false);
+  const [discoveryQuery, setDiscoveryQuery] = useState("");
   const [goal, setGoal] = useState("");
   const [cadence, setCadence] = useState("monthly");
   const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
@@ -80,6 +81,15 @@ export default function MentorshipPage() {
 
   const myRequests = useMemo(() => requests.filter(item => item.requester_id === userId), [requests, userId]);
   const incomingRequests = useMemo(() => requests.filter(item => item.mentor_id === userId), [requests, userId]);
+  const visibleMentors = useMemo(() => {
+    const query = discoveryQuery.trim().toLowerCase();
+    if (!query) return mentors;
+    return mentors.filter(mentor => {
+      const profile = profileOf(mentor);
+      return [displayName(mentor), profile?.username, mentor.headline, mentor.bio, mentor.country, profile?.country, ...mentor.skills, ...mentor.languages]
+        .filter(Boolean).join(" ").toLowerCase().includes(query);
+    });
+  }, [mentors, discoveryQuery]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -156,7 +166,8 @@ export default function MentorshipPage() {
 
           <section className="mentor-discovery">
             <div className="mentor-section-title"><div><span className="mentor-kicker">GROW TOGETHER</span><h2>Discover mentors</h2></div><span className="mentor-count"><Users size={15}/>{mentors.length} available</span></div>
-            {mentors.length ? <div className="mentor-cards">{mentors.map(mentor => {
+            <label className="mentor-search"><Search size={16}/><input aria-label="Search mentors by skill, language or region" value={discoveryQuery} onChange={event => setDiscoveryQuery(event.target.value)} placeholder="Search skills, languages or region"/></label>
+            {visibleMentors.length ? <div className="mentor-cards">{visibleMentors.map(mentor => {
               const profile = profileOf(mentor);
               return <article className="opportunity-card mentor-card" key={mentor.user_id}>
                 <div className="mentor-person"><span className="mentor-avatar">{(displayName(mentor).trim()[0] || "W").toUpperCase()}</span><div><strong>{displayName(mentor)}</strong><small>@{profile?.username || "member"}{mentor.country || profile?.country ? ` · ${mentor.country || profile?.country}` : ""}</small></div><BadgeCheck size={18}/></div>
@@ -166,7 +177,7 @@ export default function MentorshipPage() {
                 <div className="mentor-meta"><span><Clock3 size={14}/>{mentor.availability}</span><span><MapPin size={14}/>{mentor.languages.join(", ") || "Languages not specified"}</span></div>
                 <button className="primary-button" onClick={() => setSelectedMentor(mentor)}><Send size={15}/> Request mentorship</button>
               </article>;
-            })}</div> : <div className="mentor-empty"><Users size={25}/><strong>No mentors are listed yet</strong><span>When members opt in, their profiles will appear here.</span></div>}
+            })}</div> : <div className="mentor-empty"><Users size={25}/><strong>{mentors.length ? "No mentors match that search" : "No mentors are listed yet"}</strong><span>{mentors.length ? "Try another skill, language or region." : "When members opt in, their profiles will appear here."}</span></div>}
           </section>
 
           <section className="opportunity-card mentor-requests">
