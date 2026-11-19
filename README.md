@@ -99,3 +99,8 @@ Row-level security is enabled on WorldConnect data tables. Keep the Supabase ser
 The opt-in mentorship network lets members publish a mentor profile with a headline, short bio, skills, languages, region and availability. Profiles are hidden from discovery until the member explicitly enables requests. Members can send a private mentorship goal and choose weekly, monthly or one-time cadence; mentors can accept or decline, requesters can withdraw, and either participant can mark an accepted mentorship complete.
 
 For an existing database, apply `supabase/migrations/20261127_mentorship_marketplace.sql` only after confirming migrations through `20261126_enforce_member_blocks.sql` have been applied to the intended WorldConnect project. The migration is additive and uses the existing block-enforcement helper. It does not modify existing member content. Verify it with two separate test accounts before enabling the feature in production. Do not apply this migration to a different Supabase project.
+
+
+### Social notification and trigger RPC hardening
+
+After confirming the mentorship migration and the existing WorldConnect schema are present, review and apply `supabase/migrations/20261127000000_worldconnect_notification_rpc_hardening.sql`. It restores like, comment and follow activity notifications and removes direct API execution grants from trigger-only functions. For existing shared databases, reconcile migration history first; never replay the full schema or apply WorldConnect migrations to the Global Messenger schema.

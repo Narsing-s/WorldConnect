@@ -203,7 +203,7 @@ check("Privacy page discloses public media and accurately scopes self-service da
   assert.match(page, /publicly readable/i);
   assert.match(page, /Do not upload identity documents/i);
   assert.match(page, /not yet a complete archive/i);
-  assert.ok(page.includes("Full account deletion") && page.includes("require additional server-side work"));
+  assert.ok(page.includes("Full account deletion") && page.includes("still require additional work"));
   assert.match(page, /private to the signed-in member/i);
   assert.ok(page.includes("<PrivacyControls />"));
   assert.ok(controls.includes("Download your data"));
@@ -246,6 +246,27 @@ check("Mentorship marketplace uses opt-in discovery and private request RPCs", (
   const home = read("app/page.tsx");
   assert.ok(home.includes('"/mentorship"'));
   assert.ok(home.includes('"/mentorship"'));
+});
+
+check("Social notification triggers are restored and trigger-only RPC access is revoked", () => {
+  const sql = read("supabase/migrations/20261127000000_worldconnect_notification_rpc_hardening.sql");
+  for (const [trigger, table] of [
+    ["wc_notify_post_like", "wc_post_likes"],
+    ["wc_notify_comment", "wc_comments"],
+    ["wc_notify_follow", "wc_follows"],
+  ]) {
+    assert.match(sql, new RegExp("create trigger " + trigger + "[\\s\\S]*on public\\." + table, "i"));
+    assert.match(sql, new RegExp("execute function public\\.wc_create_activity_notification\\(\\)", "i"));
+  }
+  for (const fn of [
+    "wc_create_activity_notification",
+    "wc_handle_new_user",
+    "wc_log_content_report_event",
+    "wc_notify_message",
+  ]) {
+    assert.match(sql, new RegExp("revoke all on function public\\." + fn + "\\(\\)[\\s\\S]{0,100}from public, anon, authenticated", "i"));
+  }
+  assert.match(sql, /wc_is_blocked_between is intentionally retained/i);
 });
 
 for (const item of checks) {

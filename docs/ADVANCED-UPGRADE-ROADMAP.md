@@ -116,3 +116,14 @@ Implemented in source:
 - Primary navigation entry reuses the existing global navigation; no new top-level menu group is introduced.
 
 Release gate still pending: apply the new migration only to the verified WorldConnect Supabase project, then run two-account live RLS tests and confirm the Vercel preview. Repository source checks do not prove live database activation.
+
+
+## Live audit follow-up — 2026-11-19
+
+- [x] Audit connected Supabase tables, migration history, trigger inventory and database advisors without modifying production data.
+- [x] Identify and prepare an additive migration restoring missing like/comment/follow notification triggers.
+- [x] Prepare an additive migration to restrict direct API execution of trigger-only WorldConnect SECURITY DEFINER functions.
+- [ ] Reconcile WorldConnect migration history with the already-existing live schema before any automated migration rollout.
+- [ ] Apply the new migration after review, then verify all three triggers and function grants in the live database.
+- [ ] Run two-account smoke tests for like/comment/follow notifications and verify no cross-account data leakage.
+- [ ] Plan WorldConnect-only FK indexes using live table sizes and query plans; do not alter Global Messenger indexes as part of this PR.

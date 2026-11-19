@@ -32,6 +32,8 @@ For a fresh Supabase project, apply these scripts one at a time:
 13. supabase/migrations/20261125_private_chat_attachments.sql
 14. supabase/migrations/20261126_enforce_member_blocks.sql
 15. supabase/migrations/20261127_mentorship_marketplace.sql
+16. supabase/migrations/20261127000000_worldconnect_notification_rpc_hardening.sql
+15. supabase/migrations/20261127_mentorship_marketplace.sql
 
 The data-integrity guardrails have a date-based filename that sorts before candidate preferences, but depend on both the tracker and candidate-preferences tables. Apply them after both dependencies.
 
@@ -96,9 +98,24 @@ A release is ready only when GitHub Actions lint, platform verification and prod
 - GitHub CI does not prove Vercel environment variables are correct.
 - Provider availability and job freshness depend on external providers.
 - Legacy public-media migration requires a trusted process with Storage access.
-- Account export/deletion, session management, MFA UX, appeals, mentorship, events, referrals, PWA and operational monitoring are not complete until their full implementation and tests exist.
+- Account export/deletion, session management, MFA UX, appeals, events, referrals, PWA and operational monitoring are not complete until their full implementation and tests exist.
 
 
 ## Mentorship marketplace rollout
 
-The mentorship migration depends on `wc_is_blocked_between(uuid, uuid)` from the member-block migration. Apply it only after the block-enforcement migration is present in the intended project. Then verify opt-in discovery, private request visibility, accept/decline/withdraw/complete permissions, duplicate active-request prevention and blocked-member denial with two independent test accounts. No live WorldConnect Supabase project was available through the connected project list at the time this branch was prepared; do not infer deployment from the repository migration file.
+The mentorship migration depends on `wc_is_blocked_between(uuid, uuid)` from the member-block migration. Apply it only after the block-enforcement migration is present in the intended project. Then verify opt-in discovery, private request visibility, accept/decline/withdraw/complete permissions, duplicate active-request prevention and blocked-member denial with two independent test accounts. The connected Supabase project currently contains both `gm_*` (Global Messenger) and `wc_*` (WorldConnect) objects, but its migration history lists only three Global Messenger migrations. This is schema/migration-history drift and may reflect SQL Editor/manual application. Do not replay the complete WorldConnect schema or infer deployment from repository migration files.
+
+
+## 8. Live database audit — 2026-11-19
+
+The connected Supabase project is shared by WorldConnect and Global Messenger. Preserve both applications' objects and data; do not drop, rename, truncate, or broadly rewrite either schema.
+
+The database contains the WorldConnect tables and functions, but migration history currently reports only three Global Messenger migrations. Reconcile the migration baseline against the live schema before automated rollout. Do not replay `supabase/schema.sql` or historical WorldConnect migrations against this database.
+
+The live trigger inventory showed that the three social notification triggers for `wc_post_likes`, `wc_comments`, and `wc_follows` were missing even though `wc_create_activity_notification()` existed. The additive migration listed above restores those triggers and revokes direct API execution from four trigger-only SECURITY DEFINER functions while preserving their trigger behavior.
+
+The `wc_is_blocked_between(uuid,uuid)` helper remains callable by `anon` because existing public-read RLS policies reference it. It returns false when `auth.uid()` is null and limits authenticated checks to relationships involving the caller. A future policy refactor can split anonymous and authenticated read policies before removing that grant.
+
+Security Advisor also reports authenticated-executable SECURITY DEFINER RPCs. Some are intentional member-scoped operations; review each function's authorization checks rather than revoking all grants indiscriminately. Performance Advisor reports 28 unindexed foreign keys across the shared database, including 26 WorldConnect foreign keys. Plan index changes after checking table sizes, existing composite indexes and query plans; do not alter Global Messenger indexes as part of this PR.
+
+The new notification/RPC migration is not applied automatically. Apply it only after reviewing this PR and confirming the target project's migration baseline.
