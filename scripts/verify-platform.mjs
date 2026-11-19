@@ -230,11 +230,11 @@ check("Account security controls use Supabase MFA and revoke other sessions", ()
 check("Mentorship marketplace uses opt-in discovery and private request RPCs", () => {
   const sql = read("supabase/migrations/20261127_mentorship_marketplace.sql");
   assert.match(sql, /accepting_requests boolean not null default false/i);
-  assert.match(sql, /wc_is_blocked_between\\(auth\\.uid\\(\\), user_id\\)/i);
+  assert.ok(sql.includes("wc_is_blocked_between(auth.uid(), user_id)"));
   assert.match(sql, /Participants view mentorship requests/i);
   assert.match(sql, /wc_request_mentorship/i);
   assert.match(sql, /wc_respond_mentorship_request/i);
-  assert.match(sql, /revoke all on public\\.wc_mentorship_profiles, public\\.wc_mentorship_requests from public, anon/i);
+  assert.ok(sql.includes("revoke all on public.wc_mentorship_profiles, public.wc_mentorship_requests from public, anon"));
   assert.match(sql, /wc_mentorship_one_active_request_idx/i);
   assert.match(sql, /Daily mentorship request limit reached/i);
   const page = read("app/mentorship/page.tsx");
