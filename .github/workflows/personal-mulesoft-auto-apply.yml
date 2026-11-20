@@ -1,10 +1,10 @@
-name: Personal MuleSoft India Job Applications
+name: Personal MuleSoft Global Job Discovery
 
 on:
   workflow_dispatch:
     inputs:
       locations:
-        description: "India locations (use 'all' for every Indian location)"
+        description: "Countries/locations (use 'all' for India, US and worldwide)"
         required: true
         default: "all"
         type: string
@@ -15,7 +15,7 @@ on:
         type: choice
         options: ["10", "20", "30", "50"]
       include_remote:
-        description: "Include remote roles eligible for India"
+        description: "Include remote roles"
         required: true
         default: true
         type: boolean
@@ -43,20 +43,19 @@ jobs:
           fi
           case "$APP_URL" in https://*) ;; *) echo "::error::WORLDCONNECT_APP_URL must use HTTPS"; exit 1;; esac
 
-      - name: Fetch dedicated MuleSoft openings
+      - name: Fetch global MuleSoft openings
         env:
           APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location --max-time 90 \
-            "${APP_URL%/}/api/jobs/mulesoft" \
-            -H "Accept: application/json" \
-            -o jobs.json
+            "${APP_URL%/}/api/jobs/mulesoft?live=true" \
+            -H "Accept: application/json" -o jobs.json
           jq -e '.jobs | type == "array"' jobs.json >/dev/null
           echo "Fetched $(jq '.jobs | length' jobs.json) dedicated MuleSoft listings."
           jq -r '(.diagnostics // [])[] | "Provider: " + .provider + " | available=" + (.available|tostring) + " | fetched=" + (.fetched|tostring) + " | matched=" + (.matched|tostring)' jobs.json || true
 
-      - name: Match India MuleSoft roles for this candidate
+      - name: Match global MuleSoft roles for this candidate
         env:
           LOCATIONS: ${{ inputs.locations }}
           MAX_MATCHES: ${{ inputs.max_matches }}
@@ -66,21 +65,16 @@ jobs:
           python3 - <<'PY'
           import csv, json, os, re
           from datetime import datetime, timezone
-
           with open("jobs.json", encoding="utf-8") as f:
               payload = json.load(f)
           jobs = payload.get("jobs") or []
-          raw_locations = os.environ["LOCATIONS"].strip().lower()
-          all_india = raw_locations in ("all", "all india", "india", "*")
-          locations = [] if all_india else [x.strip().lower() for x in raw_locations.split(",") if x.strip()]
+          raw = os.environ["LOCATIONS"].strip().lower()
+          worldwide = raw in ("all", "all countries", "worldwide", "*")
+          locations = [] if worldwide else [x.strip().lower() for x in raw.split(",") if x.strip()]
           include_remote = os.environ["INCLUDE_REMOTE"].lower() == "true"
           limit = int(os.environ["MAX_MATCHES"])
-          role_terms = re.compile(r"mulesoft|mule\s*4|anypoint\s*(platform|studio)|mule\s*runtime", re.I)
-          india_terms = re.compile(r"india|hyderabad|telangana|bengaluru|bangalore|karnataka|pune|maharashtra|chennai|tamil nadu|mumbai|noida|uttar pradesh|gurugram|gurgaon|haryana|delhi|kolkata|west bengal|ahmedabad|gujarat|kochi|kerala|jaipur|rajasthan|indore|madhya pradesh|bhubaneswar|odisha|visakhapatnam|andhra pradesh", re.I)
-          remote_terms = re.compile(r"remote|anywhere|worldwide|global", re.I)
-          fulltime_terms = re.compile(r"full.?time|permanent", re.I)
+          role = re.compile(r"mulesoft|mule\s*4|anypoint\s*(platform|studio)|mule\s*runtime", re.I)
           rows, seen = [], set()
-
           for job in jobs:
               title = str(job.get("title") or "").strip()
               company = str(job.get("company") or "").strip()
@@ -88,75 +82,59 @@ jobs:
               description = str(job.get("description") or "")
               tags = " ".join(str(x) for x in (job.get("tags") or []))
               url = str(job.get("url") or "").strip()
-              identity = (url.split("?")[0].rstrip("/").lower() or str(job.get("id") or "").lower())
+              identity = url.split("?")[0].rstrip("/").lower() or str(job.get("id") or "").lower()
               if not title or not url.startswith("https://") or identity in seen:
                   continue
-              seen.add(identity)
-              text = " ".join([title, company, location, description, tags])
-              if not role_terms.search(text):
+              if not role.search(" ".join([title, company, location, description, tags])):
                   continue
-
-              loc = location.lower()
-              india_role = bool(india_terms.search(loc))
-              india_remote = job.get("indiaRelevance") == "Remote - India eligibility to verify"
-              remote_role = bool(remote_terms.search(loc)) or bool(job.get("remote"))
-              if all_india:
-                  location_ok = india_role or (include_remote and remote_role and india_remote)
-              else:
-                  city_match = any(term in loc for term in locations)
-                  location_ok = city_match or (include_remote and remote_role and india_remote)
+              seen.add(identity)
+              remote = bool(job.get("remote")) or bool(re.search(r"remote|anywhere|worldwide|global", location, re.I))
+              location_ok = worldwide or any(term in location.lower() for term in locations) or (include_remote and remote)
               if not location_ok:
                   continue
-
-              employment = "Full-time stated" if fulltime_terms.search(text) else "Verify employment type"
+              text = " ".join([title, company, description, tags])
+              employment = "Full-time stated" if re.search(r"full.?time|permanent", text, re.I) else "Verify employment type"
               experience = str(job.get("experience") or "Not stated")
-              rows.append({
-                  "title": title, "company": company or "Not listed",
-                  "location": location or "Not specified", "experience": experience,
-                  "employment_check": employment,
-                  "candidate_fit": "Review requirement" if experience != "Not stated" else "Experience not stated - review JD",
-                  "source": str(job.get("source") or "WorldConnect"),
-                  "posted_at": str(job.get("postedAt") or ""),
-                  "url": url, "job_id": str(job.get("id") or "")
-              })
-
-          rows.sort(key=lambda r: (r["employment_check"] != "Full-time stated", r["title"].lower()))
-          rows = rows[:limit]
-          fields = ["title","company","location","experience","employment_check","candidate_fit","source","posted_at","url","job_id"]
-          with open("mulesoft-india-matches.csv", "w", newline="", encoding="utf-8") as f:
-              writer = csv.DictWriter(f, fieldnames=fields)
-              writer.writeheader()
-              writer.writerows(rows)
-
-          diagnostics = payload.get("diagnostics") or []
-          with open("run-summary.md", "w", encoding="utf-8") as f:
-              f.write("# Personal MuleSoft India job matches\n\n")
+              rows.append({"title":title,"company":company or "Not listed","location":location or "Not specified",
+                "experience":experience,"employment_check":employment,
+                "candidate_fit":"Review requirement against 4+ MuleSoft / 4.8+ IT years",
+                "source":str(job.get("source") or "WorldConnect"),"posted_at":str(job.get("postedAt") or ""),
+                "url":url,"job_id":str(job.get("id") or "")})
+          rows.sort(key=lambda r:(r["employment_check"]!="Full-time stated",r["title"].lower()))
+          rows=rows[:limit]
+          fields=["title","company","location","experience","employment_check","candidate_fit","source","posted_at","url","job_id"]
+          with open("mulesoft-global-matches.csv","w",newline="",encoding="utf-8") as f:
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows)
+          diagnostics=payload.get("diagnostics") or []
+          with open("run-summary.md","w",encoding="utf-8") as f:
+              f.write("# Personal MuleSoft global job matches\n\n")
               f.write(f"- Run time (UTC): {datetime.now(timezone.utc).isoformat()}\n")
-              f.write("- Candidate scope: this repository's workflow run only\n")
-              f.write(f"- Candidate profile: 4.8+ years overall IT, 4+ years MuleSoft; 30-day notice\n")
-              f.write(f"- Requested locations: {'All India' if all_india else ', '.join(locations)}\n")
-              f.write(f"- Dedicated MuleSoft listings fetched: {len(jobs)}\n")
-              f.write(f"- Matches: {len(rows)}\n\n")
+              f.write("- Candidate profile: 4.8+ years overall IT, 4+ years MuleSoft; 30-day notice\n")
+              f.write(f"- Requested locations: {'All countries (including India and US)' if worldwide else ', '.join(locations)}\n")
+              f.write(f"- Dedicated MuleSoft listings fetched: {len(jobs)}\n- Matches: {len(rows)}\n\n")
               f.write("## Provider diagnostics\n\n")
-              if diagnostics:
-                  for item in diagnostics:
-                      f.write(f"- {item.get('provider')}: {'available' if item.get('available') else 'unavailable'}; fetched {item.get('fetched', 0)}; matched {item.get('matched', 0)}\n")
-              else:
-                  f.write("- Provider diagnostics are not available from this deployment yet.\n")
-              f.write("\n> **Application status: Not submitted.** This run discovers and matches jobs only. It does not log in to employer portals, submit forms, or claim an application was sent. Verify each vacancy, experience requirement, full-time status and India eligibility before applying.\n\n")
+              for item in diagnostics:
+                  f.write(f"- {item.get('provider')}: {'available' if item.get('available') else 'unavailable'}; fetched {item.get('fetched',0)}; MuleSoft matched {item.get('matched',0)}\n")
+              f.write("\n## LinkedIn and Naukri job-search links\n\n")
+              f.write("- [LinkedIn — MuleSoft jobs worldwide](https://www.linkedin.com/jobs/search/?keywords=MuleSoft)\n")
+              f.write("- [LinkedIn — MuleSoft jobs in the United States](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=United%20States)\n")
+              f.write("- [LinkedIn — MuleSoft jobs in India](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=India)\n")
+              f.write("- [Naukri — MuleSoft jobs in India](https://www.naukri.com/mulesoft-jobs)\n")
+              f.write("\n> LinkedIn and Naukri are provided as direct search links, not scraped feeds: neither account login nor an authorized public job API is configured.\n\n")
+              f.write("> **Application status: Not submitted.** This workflow discovers and prepares a shortlist only. It does not sign in, submit applications, or claim an application was sent. Verify location/work authorization, experience, employment type and employer application channel for every role.\n\n")
               f.write("| Role | Company | Location | Experience | Employment check | Source | Apply link |\n|---|---|---|---|---|---|---|\n")
               for r in rows:
-                  safe = lambda s: str(s).replace("|", "\\|").replace("\n", " ")
+                  safe=lambda s:str(s).replace("|","\\|").replace("\n"," ")
                   f.write(f"| {safe(r['title'])} | {safe(r['company'])} | {safe(r['location'])} | {safe(r['experience'])} | {safe(r['employment_check'])} | {safe(r['source'])} | [Employer application]({r['url']}) |\n")
-          print(f"Fetched {len(jobs)} dedicated MuleSoft listings; prepared {len(rows)} candidate matches.")
+          print(f"Fetched {len(jobs)} listings; prepared {len(rows)} global candidate matches.")
           PY
 
       - name: Publish this run's report
         uses: actions/upload-artifact@v4
         with:
-          name: personal-mulesoft-india-applications
+          name: personal-mulesoft-global-job-matches
           path: |
-            mulesoft-india-matches.csv
+            mulesoft-global-matches.csv
             run-summary.md
           if-no-files-found: error
           retention-days: 30
