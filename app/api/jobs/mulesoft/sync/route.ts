@@ -11,7 +11,7 @@ function sameSecret(a: string, b: string) {
 
 export async function POST(req: NextRequest) {
   const expected = process.env.JOBS_SYNC_SECRET;
-  const supplied = req.headers.get("authorization")?.replace(/^Bearer\\s+/i, "") ||
+  const supplied = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
     req.headers.get("x-jobs-sync-secret") || "";
   if (!expected || !supplied || !sameSecret(supplied, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
