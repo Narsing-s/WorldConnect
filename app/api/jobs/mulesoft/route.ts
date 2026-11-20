@@ -27,7 +27,8 @@ function fromRow(row: Record<string, unknown>): MuleSoftJob {
 export async function GET(req: NextRequest) {
   const location = (req.nextUrl.searchParams.get("location") || "").trim().toLowerCase();
   const db = publicDb();
-  if (db) {
+  const forceLive = req.nextUrl.searchParams.get("live") === "true";
+  if (db && !forceLive) {
     const { data, error } = await db.from("wc_mulesoft_jobs").select("*")
       .eq("status", "published").order("posted_at", { ascending: false, nullsFirst: false }).limit(500);
     if (!error && data && data.length > 0) {
