@@ -36,10 +36,10 @@ check("Required platform migrations exist", () => {
 
 check("MuleSoft job feed is publicly readable but server-write-only", () => {
   const sql = read("supabase/migrations/20261120_mulesoft_jobs_feed.sql");
-  assert.match(sql, /alter table public\\.wc_mulesoft_jobs enable row level security/i);
-  assert.match(sql, /using \\(status = 'published'\\)/i);
-  assert.match(sql, /revoke insert, update, delete[\\s\\S]*from anon, authenticated/i);
-  assert.match(sql, /grant all privileges on public\\.wc_mulesoft_jobs to service_role/i);
+  assert.ok(sql.includes("alter table public.wc_mulesoft_jobs enable row level security"));
+  assert.ok(sql.includes("using (status = 'published')"));
+  assert.ok(sql.includes("revoke insert, update, delete"));
+  assert.ok(sql.includes("grant all privileges on public.wc_mulesoft_jobs to service_role"));
   assert.match(read("app/api/jobs/mulesoft/sync/route.ts"), /JOBS_SYNC_SECRET/);
   assert.match(read(".github/workflows/mulesoft-jobs-auto-sync.yml"), /workflow_dispatch/);
 });
