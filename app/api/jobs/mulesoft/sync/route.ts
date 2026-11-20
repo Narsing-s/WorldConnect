@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { jobs, errors } = await collectMuleSoftJobs();
+    const { jobs, errors, diagnostics } = await collectMuleSoftJobs();
     if (!jobs.length && errors.length >= 5) throw new Error("All discovery providers failed; existing MuleSoft listings were retained.");
 
     let added = 0;
@@ -61,11 +61,11 @@ export async function POST(req: NextRequest) {
     const completedAt = new Date().toISOString();
     const finish = await db.from("wc_mulesoft_job_sync_runs").update({
       status: "completed", completed_at: completedAt, imported_count: jobs.length,
-      added_count: added, updated_count: updated, provider_errors: errors,
+      added_count: added, updated_count: updated, provider_errors: errors, provider_diagnostics: diagnostics,
     }).eq("id", run.data.id);
     if (finish.error) throw new Error("Could not complete MuleSoft sync run: " + finish.error.message);
 
-    return NextResponse.json({ success: true, imported: jobs.length, added, updated, jobs: details, errors, completedAt });
+    return NextResponse.json({ success: true, imported: jobs.length, added, updated, jobs: details, errors, diagnostics, completedAt });
   } catch (error) {
     const message = error instanceof Error ? error.message : "MuleSoft sync failed.";
     await db.from("wc_mulesoft_job_sync_runs").update({
