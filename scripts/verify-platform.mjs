@@ -18,6 +18,7 @@ function check(label, fn) {
 check("Required platform migrations exist", () => {
   for (const path of [
     "supabase/jobs-auto-sync.sql",
+    "supabase/migrations/20261120_mulesoft_jobs_feed.sql",
     "supabase/migrations/20261116_job_application_tracker.sql",
     "supabase/migrations/20261117_candidate_job_preferences.sql",
     "supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql",
@@ -31,6 +32,16 @@ check("Required platform migrations exist", () => {
     "supabase/migrations/20261125_private_chat_attachments.sql",
     "supabase/migrations/20261126_enforce_member_blocks.sql",
   ]) read(path);
+});
+
+check("MuleSoft job feed is publicly readable but server-write-only", () => {
+  const sql = read("supabase/migrations/20261120_mulesoft_jobs_feed.sql");
+  assert.match(sql, /alter table public\\.wc_mulesoft_jobs enable row level security/i);
+  assert.match(sql, /using \\(status = 'published'\\)/i);
+  assert.match(sql, /revoke insert, update, delete[\\s\\S]*from anon, authenticated/i);
+  assert.match(sql, /grant all privileges on public\\.wc_mulesoft_jobs to service_role/i);
+  assert.match(read("app/api/jobs/mulesoft/sync/route.ts"), /JOBS_SYNC_SECRET/);
+  assert.match(read(".github/workflows/mulesoft-jobs-auto-sync.yml"), /workflow_dispatch/);
 });
 
 check("Private job applications enforce owner-only RLS and no anon access", () => {
