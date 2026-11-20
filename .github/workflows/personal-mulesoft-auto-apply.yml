@@ -73,7 +73,7 @@ jobs:
           locations = [] if worldwide else [x.strip().lower() for x in raw.split(",") if x.strip()]
           include_remote = os.environ["INCLUDE_REMOTE"].lower() == "true"
           limit = int(os.environ["MAX_MATCHES"])
-          role = re.compile(r"mulesoft|mule\\s*4|anypoint\\s*(platform|studio)|mule\\s*runtime", re.I)
+          role = re.compile(r"mulesoft|mule\s*4|anypoint\s*(platform|studio)|mule\s*runtime", re.I)
           rows, seen = [], set()
           for job in jobs:
               title = str(job.get("title") or "").strip()
@@ -107,25 +107,25 @@ jobs:
               w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows)
           diagnostics=payload.get("diagnostics") or []
           with open("run-summary.md","w",encoding="utf-8") as f:
-              f.write("# Personal MuleSoft global job matches\\n\\n")
-              f.write(f"- Run time (UTC): {datetime.now(timezone.utc).isoformat()}\\n")
-              f.write("- Candidate profile: 4.8+ years overall IT, 4+ years MuleSoft; 30-day notice\\n")
-              f.write(f"- Requested locations: {'All countries (including India and US)' if worldwide else ', '.join(locations)}\\n")
-              f.write(f"- Dedicated MuleSoft listings fetched: {len(jobs)}\\n- Matches: {len(rows)}\\n\\n")
-              f.write("## Provider diagnostics\\n\\n")
+              f.write("# Personal MuleSoft global job matches\n\n")
+              f.write(f"- Run time (UTC): {datetime.now(timezone.utc).isoformat()}\n")
+              f.write("- Candidate profile: 4.8+ years overall IT, 4+ years MuleSoft; 30-day notice\n")
+              f.write(f"- Requested locations: {'All countries (including India and US)' if worldwide else ', '.join(locations)}\n")
+              f.write(f"- Dedicated MuleSoft listings fetched: {len(jobs)}\n- Matches: {len(rows)}\n\n")
+              f.write("## Provider diagnostics\n\n")
               for item in diagnostics:
-                  f.write(f"- {item.get('provider')}: {'available' if item.get('available') else 'unavailable'}; fetched {item.get('fetched',0)}; MuleSoft matched {item.get('matched',0)}\\n")
-              f.write("\\n## LinkedIn and Naukri job-search links\\n\\n")
-              f.write("- [LinkedIn — MuleSoft jobs worldwide](https://www.linkedin.com/jobs/search/?keywords=MuleSoft)\\n")
-              f.write("- [LinkedIn — MuleSoft jobs in the United States](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=United%20States)\\n")
-              f.write("- [LinkedIn — MuleSoft jobs in India](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=India)\\n")
-              f.write("- [Naukri — MuleSoft jobs in India](https://www.naukri.com/mulesoft-jobs)\\n")
-              f.write("\\n> LinkedIn and Naukri are provided as direct search links, not scraped feeds: neither account login nor an authorized public job API is configured.\\n\\n")
-              f.write("> **Application status: Not submitted.** This workflow discovers and prepares a shortlist only. It does not sign in, submit applications, or claim an application was sent. Verify location/work authorization, experience, employment type and employer application channel for every role.\\n\\n")
-              f.write("| Role | Company | Location | Experience | Employment check | Source | Apply link |\\n|---|---|---|---|---|---|---|\\n")
+                  f.write(f"- {item.get('provider')}: {'available' if item.get('available') else 'unavailable'}; fetched {item.get('fetched',0)}; MuleSoft matched {item.get('matched',0)}\n")
+              f.write("\n## LinkedIn and Naukri job-search links\n\n")
+              f.write("- [LinkedIn — MuleSoft jobs worldwide](https://www.linkedin.com/jobs/search/?keywords=MuleSoft)\n")
+              f.write("- [LinkedIn — MuleSoft jobs in the United States](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=United%20States)\n")
+              f.write("- [LinkedIn — MuleSoft jobs in India](https://www.linkedin.com/jobs/search/?keywords=MuleSoft&location=India)\n")
+              f.write("- [Naukri — MuleSoft jobs in India](https://www.naukri.com/mulesoft-jobs)\n")
+              f.write("\n> LinkedIn and Naukri are provided as direct search links, not scraped feeds: neither account login nor an authorized public job API is configured.\n\n")
+              f.write("> **Application status: Not submitted.** This workflow discovers and prepares a shortlist only. It does not sign in, submit applications, or claim an application was sent. Verify location/work authorization, experience, employment type and employer application channel for every role.\n\n")
+              f.write("| Role | Company | Location | Experience | Employment check | Source | Apply link |\n|---|---|---|---|---|---|---|\n")
               for r in rows:
-                  safe=lambda s:str(s).replace("|","\\\\|").replace("\\n"," ")
-                  f.write(f"| {safe(r['title'])} | {safe(r['company'])} | {safe(r['location'])} | {safe(r['experience'])} | {safe(r['employment_check'])} | {safe(r['source'])} | [Employer application]({r['url']}) |\\n")
+                  safe=lambda s:str(s).replace("|","\\|").replace("\n"," ")
+                  f.write(f"| {safe(r['title'])} | {safe(r['company'])} | {safe(r['location'])} | {safe(r['experience'])} | {safe(r['employment_check'])} | {safe(r['source'])} | [Employer application]({r['url']}) |\n")
           print(f"Fetched {len(jobs)} listings; prepared {len(rows)} global candidate matches.")
           PY
 
