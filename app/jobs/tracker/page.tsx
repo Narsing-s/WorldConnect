@@ -51,6 +51,12 @@ export default function JobTrackerPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  async function sendCareerEmail(payload: { company: string; position: string; status: string; event: string; interviewDate?: string | null; followUpDate?: string | null }) {
+    if (!supabase) return false;
+    const { error: emailError } = await supabase.functions.invoke("send-career-update", { body: payload });
+    return !emailError;
+  }
+
   async function addApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !allowed) return;
@@ -64,7 +70,8 @@ export default function JobTrackerPage() {
     });
     if (insertError) setError(insertError.message);
     else {
-      setNotice("Application added to your private tracker.");
+      const emailSent = await sendCareerEmail({ company: form.company_name, position: form.job_title, status: form.status, event: "New application added", interviewDate: form.interview_at, followUpDate: form.follow_up_at });
+      setNotice(emailSent ? "Application added. Email notification sent." : "Application saved. Email notification is not configured or could not be sent yet.");
       setForm({ company_name: "", job_title: "", location: "Hyderabad, India", status: "applied", applied_at: new Date().toISOString().slice(0, 10), application_url: "", interview_at: "", follow_up_at: "", notes: "" });
       await load();
     }
@@ -76,7 +83,18 @@ export default function JobTrackerPage() {
     setBusyId(item.id); setError(""); setNotice("");
     const { error: updateError } = await supabase.from("wc_job_applications").update(changes).eq("id", item.id);
     if (updateError) setError(updateError.message);
-    else { setNotice("Application updated."); await load(); }
+    else {
+      const emailSent = await sendCareerEmail({
+        company: item.company_name || item.wc_jobs?.company || "Company",
+        position: item.job_title || item.wc_jobs?.title || "Position",
+        status: typeof changes.status === "string" ? changes.status : item.status,
+        event: "Application details updated",
+        interviewDate: typeof changes.interview_at === "string" ? changes.interview_at : item.interview_at,
+        followUpDate: typeof changes.follow_up_at === "string" ? changes.follow_up_at : item.follow_up_at
+      });
+      setNotice(emailSent ? "Application updated. Email notification sent." : "Application updated. Email notification is not configured or could not be sent yet.");
+      await load();
+    }
     setBusyId("");
   }
 
