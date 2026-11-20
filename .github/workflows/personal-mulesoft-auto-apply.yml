@@ -72,7 +72,7 @@ jobs:
           include_remote = os.environ["INCLUDE_REMOTE"].lower() == "true"
           limit = int(os.environ["MAX_MATCHES"])
           role_terms = re.compile(r"mulesoft|mule\s*4|integration developer|integration engineer|api developer", re.I)
-          india_terms = re.compile(r"india|hyderabad|bengaluru|bangalore|pune|remote", re.I)
+          india_terms = re.compile(r"india|hyderabad|bengaluru|bangalore|pune", re.I)
           fulltime_terms = re.compile(r"full.?time|permanent", re.I)
           rows, seen = [], set()
 
