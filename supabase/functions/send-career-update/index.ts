@@ -1,20 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OWNER_EMAIL = "narsingbeesetti006@gmail.com";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[char] || char));
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   const authorization = req.headers.get("Authorization");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const resendKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("WELCOME_FROM_EMAIL");
   if (!authorization?.startsWith("Bearer ") || !supabaseUrl || !anonKey || !resendKey || !from) {
-    return Response.json({ error: "Career email service is not configured." }, { status: 503 });
+    return Response.json({ error: "Career email service is not configured." }, { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   const supabase = createClient(supabaseUrl, anonKey, {
@@ -23,7 +29,7 @@ Deno.serve(async (req: Request) => {
   });
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || user?.email?.toLowerCase() !== OWNER_EMAIL) {
-    return Response.json({ error: "Not authorized." }, { status: 403 });
+    return Response.json({ error: "Not authorized." }, { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   const payload = await req.json().catch(() => ({}));
@@ -33,7 +39,7 @@ Deno.serve(async (req: Request) => {
   const event = escapeHtml(payload.event).slice(0, 80);
   const interview = escapeHtml(payload.interviewDate).slice(0, 40);
   const followUp = escapeHtml(payload.followUpDate).slice(0, 40);
-  if (!company || !position || !event) return Response.json({ error: "Missing application details." }, { status: 400 });
+  if (!company || !position || !event) return Response.json({ error: "Missing application details." }, { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const emailResponse = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -54,7 +60,7 @@ Deno.serve(async (req: Request) => {
   });
   if (!emailResponse.ok) {
     console.error("Resend rejected career notification:", await emailResponse.text());
-    return Response.json({ error: "Email provider rejected the notification." }, { status: 502 });
+    return Response.json({ error: "Email provider rejected the notification." }, { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-  return Response.json({ sent: true });
+  return Response.json({ sent: true }, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
