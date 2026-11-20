@@ -1,6 +1,6 @@
 import { collectJobs, type Job } from "@/lib/job-feeds";
 
-const ROLE_PATTERN = /mulesoft|mule\\s*4|anypoint\\s*(platform|studio)|mule\\s*runtime/i;
+const ROLE_PATTERN = /mulesoft|mule\s*4|anypoint\s*(platform|studio)|mule\s*runtime/i;
 
 export type MuleSoftJob = Job & {
   indiaRelevance: "India role" | "Remote - India eligibility to verify" | "International role";
@@ -9,9 +9,9 @@ export type MuleSoftJob = Job & {
 
 function experienceLabel(job: Job): string {
   const text = [job.title, job.company, job.description, ...job.tags].join(" ");
-  const match = text.match(/(?:\\b)(\\d{1,2})\\s*(?:-|–|to)\\s*(\\d{1,2})\\s*years?/i);
+  const match = text.match(/(?:\b)(\d{1,2})\s*(?:-|–|to)\s*(\d{1,2})\s*years?/i);
   if (match) return `${match[1]}–${match[2]} years`;
-  const plus = text.match(/(\\d{1,2})\\s*\\+\\s*years?/i);
+  const plus = text.match(/(\d{1,2})\s*\+\s*years?/i);
   if (plus) return `${plus[1]}+ years`;
   if (/fresher|entry[- ]level|graduate/i.test(text)) return "Entry level";
   return "Not stated";
@@ -22,7 +22,7 @@ function canonicalUrl(value: string): string {
     const url = new URL(value);
     url.hash = "";
     ["utm_source", "utm_medium", "utm_campaign", "ref", "source"].forEach(key => url.searchParams.delete(key));
-    return url.toString().replace(/\\/$/, "").toLowerCase();
+    return url.toString().replace(/\/$/, "").toLowerCase();
   } catch {
     return value.trim().toLowerCase();
   }
