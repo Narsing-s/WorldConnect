@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location --max-time 90 \
-            "${APP_URL%/}/api/jobs/mulesoft" \
+            "${APP_URL%/}/api/jobs/mulesoft?live=true" \
             -H "Accept: application/json" -o jobs.json
           jq -e '.jobs | type == "array"' jobs.json >/dev/null
           echo "Fetched $(jq '.jobs | length' jobs.json) dedicated MuleSoft listings."
