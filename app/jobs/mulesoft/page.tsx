@@ -21,17 +21,15 @@ export default function MuleSoftJobsPage() {
   const [city, setCity] = useState("All India");
   const [age, setAge] = useState("Any time");
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
   const [persisted, setPersisted] = useState(false);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async () => {
     setLoading(true); setNotice("");
     try {
       const params = new URLSearchParams();
       if (city !== "All India") params.set("location", city);
-      if (force) params.set("refresh", "1");
       const response = await fetch("/api/jobs/mulesoft?" + params.toString(), { cache: "no-store" });
       if (!response.ok) throw new Error("Could not load the MuleSoft openings feed.");
       const data = await response.json() as ResponseData;
@@ -40,7 +38,7 @@ export default function MuleSoftJobsPage() {
       setNotice(messages.slice(0, 2).join(" "));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "MuleSoft jobs could not be loaded.");
-    } finally { setLoading(false); setRefreshing(false); }
+    } finally { setLoading(false); }
   }, [city]);
 
   useEffect(() => { void load(); }, [load]);
@@ -73,7 +71,7 @@ export default function MuleSoftJobsPage() {
         <label><Search size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search MuleSoft Developer, API, Anypoint…"/></label>
         <label><MapPin size={15}/><select value={city} onChange={e=>setCity(e.target.value)}>{cities.map(item=><option key={item}>{item}</option>)}</select></label>
         <label><Clock3 size={15}/><select value={age} onChange={e=>setAge(e.target.value)}><option>Any time</option><option>24 hours</option><option>7 days</option><option>30 days</option></select></label>
-        <button className="feature-secondary" onClick={()=>{setRefreshing(true);void load(true);}} disabled={loading}><RefreshCw size={15}/> Refresh</button>
+        <button className="feature-secondary" onClick={()=>void load()} disabled={loading}><RefreshCw size={15}/> Refresh</button>
       </div>
       <div className="feature-toolbar"><strong>{visible.length} openings shown</strong><span className="mulesoft-feed-state"><Layers3 size={14}/>{persisted ? "Saved feed" : "Live discovery"}</span></div>
       {notice && <p className="feature-notice" role="status">{notice}</p>}
