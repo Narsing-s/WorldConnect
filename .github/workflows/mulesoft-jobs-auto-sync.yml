@@ -1,0 +1,62 @@
+name: WorldConnect MuleSoft openings sync
+
+on:
+  schedule:
+    - cron: "41 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worldconnect-mulesoft-job-sync
+  cancel-in-progress: false
+
+jobs:
+  discover-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate sync configuration
+        env:
+          APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
+          SYNC_SECRET: ${{ secrets.JOBS_SYNC_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL" || { echo "::error::Set WORLDCONNECT_APP_URL in GitHub Actions secrets."; exit 1; }
+          test -n "$SYNC_SECRET" || { echo "::error::Set JOBS_SYNC_SECRET in GitHub Actions secrets."; exit 1; }
+          case "$APP_URL" in https://*) ;; *) echo "::error::WORLDCONNECT_APP_URL must use HTTPS."; exit 1;; esac
+
+      - name: Discover and publish MuleSoft openings
+        env:
+          APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
+          SYNC_SECRET: ${{ secrets.JOBS_SYNC_SECRET }}
+        run: |
+          set -euo pipefail
+          response="$(mktemp)"
+          code="$(curl --silent --show-error --max-time 90 -X POST "${APP_URL%/}/api/jobs/mulesoft/sync" \
+            -H "Authorization: Bearer $SYNC_SECRET" -H "Content-Type: application/json" \
+            --output "$response" --write-out "%{http_code}")"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::MuleSoft sync returned HTTP $code."
+            sed -n '1,40p' "$response"
+            exit 1
+          fi
+          jq -e '.success == true' "$response" >/dev/null
+          added="$(jq -r '.added // 0' "$response")"
+          updated="$(jq -r '.updated // 0' "$response")"
+          imported="$(jq -r '.imported // 0' "$response")"
+          {
+            echo "## MuleSoft India job feed"
+            echo "- Newly added: **$added**"
+            echo "- Updated: **$updated**"
+            echo "- Total current matches: **$imported**"
+            echo ""
+            echo "| Status | Role | Company | Location | Source | Apply |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '(.jobs // [])[] | "| " + .action + " | " + (.title | gsub("[|\\r\\n]"; " ")) + " | " + (.company | gsub("[|\\r\\n]"; " ")) + " | " + (.location | gsub("[|\\r\\n]"; " ")) + " | " + .source + " | [Apply](" + .url + ") |"' "$response"
+            echo ""
+            echo "### Provider warnings"
+            jq -r '(.errors // [])[] | "- " + .' "$response"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
