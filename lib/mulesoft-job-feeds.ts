@@ -53,7 +53,7 @@ export async function collectMuleSoftJobs(): Promise<{ jobs: MuleSoftJob[]; erro
 
   for (const result of results) {
     for (const job of result.jobs) {
-      const text = [job.title, job.description, ...job.tags].join(" ");
+      const text = [job.title, job.company, job.description, ...job.tags].join(" ");
       if (!ROLE_PATTERN.test(text) || !job.url.startsWith("https://")) continue;
 
       const location = job.location || "Not specified";
