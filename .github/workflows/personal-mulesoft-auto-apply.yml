@@ -1,0 +1,142 @@
+name: Personal MuleSoft India Job Applications
+
+on:
+  workflow_dispatch:
+    inputs:
+      locations:
+        description: "Preferred India locations"
+        required: true
+        default: "Hyderabad,Bengaluru,Pune"
+        type: string
+      max_matches:
+        description: "Maximum matched jobs in this run"
+        required: true
+        default: "30"
+        type: choice
+        options: ["10", "20", "30", "50"]
+      include_remote:
+        description: "Include remote roles hiring in India"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-mulesoft-job-run
+  cancel-in-progress: false
+
+jobs:
+  discover-and-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate private configuration
+        env:
+          APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Add WORLDCONNECT_APP_URL in this repository's Actions secrets."
+            exit 1
+          fi
+          case "$APP_URL" in https://*) ;; *) echo "::error::WORLDCONNECT_APP_URL must use HTTPS"; exit 1;; esac
+
+      - name: Fetch current job listings
+        env:
+          APP_URL: ${{ secrets.WORLDCONNECT_APP_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 90 \
+            "${APP_URL%/}/api/jobs?q=MuleSoft" \
+            -H "Accept: application/json" \
+            -o jobs.json
+          jq -e '.jobs | type == "array"' jobs.json >/dev/null
+
+      - name: Match India MuleSoft roles for this candidate
+        env:
+          LOCATIONS: ${{ inputs.locations }}
+          MAX_MATCHES: ${{ inputs.max_matches }}
+          INCLUDE_REMOTE: ${{ inputs.include_remote }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import csv, json, os, re
+          from datetime import datetime, timezone
+
+          with open("jobs.json", encoding="utf-8") as f:
+              payload = json.load(f)
+          jobs = payload.get("jobs") or []
+          locations = [x.strip().lower() for x in os.environ["LOCATIONS"].split(",") if x.strip()]
+          include_remote = os.environ["INCLUDE_REMOTE"].lower() == "true"
+          limit = int(os.environ["MAX_MATCHES"])
+          role_terms = re.compile(r"mulesoft|mule\s*4|integration developer|integration engineer|api developer", re.I)
+          india_terms = re.compile(r"india|hyderabad|bengaluru|bangalore|pune|remote", re.I)
+          fulltime_terms = re.compile(r"full.?time|permanent", re.I)
+          rows, seen = [], set()
+
+          for job in jobs:
+              title = str(job.get("title") or "").strip()
+              company = str(job.get("company") or "").strip()
+              location = str(job.get("location") or "").strip()
+              description = str(job.get("description") or "")
+              tags = " ".join(job.get("tags") or [])
+              url = str(job.get("url") or "").strip()
+              identity = (str(job.get("id") or url or (title + company)).lower())
+              if not title or not url or identity in seen:
+                  continue
+              seen.add(identity)
+              text = " ".join([title, location, description, tags])
+              if not role_terms.search(text):
+                  continue
+              loc = location.lower()
+              remote_match = bool(re.search(r"remote|anywhere|worldwide", loc))
+              city_match = any(term in loc for term in locations)
+              india_match = bool(india_terms.search(loc))
+              if not (city_match or (include_remote and remote_match and india_match) or ("india" in loc)):
+                  continue
+              # Do not infer full-time from silence. Mark the listing for candidate verification.
+              employment = "Full-time stated" if fulltime_terms.search(text) else "Verify employment type"
+              rows.append({
+                  "title": title, "company": company or "Not listed",
+                  "location": location or "Not specified", "employment_check": employment,
+                  "source": str(job.get("source") or "WorldConnect"),
+                  "posted_at": str(job.get("postedAt") or ""),
+                  "url": url, "job_id": str(job.get("id") or "")
+              })
+
+          rows.sort(key=lambda r: (r["employment_check"] != "Full-time stated", r["title"].lower()))
+          rows = rows[:limit]
+          with open("mulesoft-india-matches.csv", "w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()) if rows else
+                  ["title","company","location","employment_check","source","posted_at","url","job_id"])
+              writer.writeheader()
+              writer.writerows(rows)
+
+          with open("run-summary.md", "w", encoding="utf-8") as f:
+              f.write("# Personal MuleSoft India job matches\n\n")
+              f.write(f"- Run time (UTC): {datetime.now(timezone.utc).isoformat()}\n")
+              f.write(f"- Candidate scope: this repository's workflow run only\n")
+              f.write(f"- Requested locations: {', '.join(locations)}\n")
+              f.write(f"- Matches: {len(rows)}\n\n")
+              f.write("> **Application status: Not submitted.** This run discovers and matches jobs only. It does not log in to employer portals, submit forms, or claim an application was sent. Each employer's supported application channel and full-time status must be verified.\n\n")
+              f.write("| Role | Company | Location | Employment check | Source | Apply link |\n|---|---|---|---|---|---|\n")
+              for r in rows:
+                  safe = lambda s: str(s).replace("|", "\\|").replace("\n", " ")
+                  f.write(f"| {safe(r['title'])} | {safe(r['company'])} | {safe(r['location'])} | {safe(r['employment_check'])} | {safe(r['source'])} | [Employer application]({r['url']}) |\n")
+          print(f"Prepared {len(rows)} candidate-specific MuleSoft matches.")
+          PY
+
+      - name: Publish this run's report
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-mulesoft-india-applications
+          path: |
+            mulesoft-india-matches.csv
+            run-summary.md
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Add report to workflow summary
+        run: cat run-summary.md >> "$GITHUB_STEP_SUMMARY"
