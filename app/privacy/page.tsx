@@ -33,7 +33,7 @@ export default function PrivacyPage() {
         <p>Visit the <Link href="/safety">Safety Centre</Link> to submit a report, review your submitted reports or manage blocked members.</p>
       </section>
       <p className="feature-notice" role="note">
-        The data export covers the listed account tables that your signed-in session can read; it is not yet a complete archive of every message, uploaded file or external-provider record. Full account deletion, complete device inventory and legacy-media migration still require additional work. This page describes application behavior, not legal advice or a reviewed privacy policy.
+        The data export covers the listed account tables that your signed-in session can read; it is not yet a complete archive of every message, uploaded file or external-provider record. Full account deletion and complete device inventory require additional server-side work; legacy-media migration also remains outstanding. This page describes application behavior, not legal advice or a reviewed privacy policy.
       </p>
     </main>
   );
