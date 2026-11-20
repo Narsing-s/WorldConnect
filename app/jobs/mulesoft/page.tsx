@@ -11,7 +11,8 @@ type MuleJob = {
   tags: string[]; salary: string | null; experience: string;
   indiaRelevance: "India role" | "Remote - India eligibility to verify";
 };
-type ResponseData = { jobs: MuleJob[]; errors: string[]; updatedAt: string | null; persisted?: boolean; setupNotice?: string };
+type ProviderDiagnostic = { provider: string; fetched: number; matched: number; available: boolean };
+type ResponseData = { jobs: MuleJob[]; errors: string[]; diagnostics?: ProviderDiagnostic[]; updatedAt: string | null; persisted?: boolean; setupNotice?: string };
 
 const cities = ["All India", "Hyderabad", "Bengaluru", "Pune", "Chennai", "Mumbai", "Remote"];
 
@@ -24,6 +25,7 @@ export default function MuleSoftJobsPage() {
   const [notice, setNotice] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
   const [persisted, setPersisted] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<ProviderDiagnostic[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true); setNotice("");
@@ -33,7 +35,7 @@ export default function MuleSoftJobsPage() {
       const response = await fetch("/api/jobs/mulesoft?" + params.toString(), { cache: "no-store" });
       if (!response.ok) throw new Error("Could not load the MuleSoft openings feed.");
       const data = await response.json() as ResponseData;
-      setJobs(data.jobs || []); setUpdatedAt(data.updatedAt || ""); setPersisted(Boolean(data.persisted));
+      setJobs(data.jobs || []); setUpdatedAt(data.updatedAt || ""); setPersisted(Boolean(data.persisted)); setDiagnostics(data.diagnostics || []);
       const messages = [...(data.errors || []), data.setupNotice || ""].filter(Boolean);
       setNotice(messages.slice(0, 2).join(" "));
     } catch (error) {
@@ -75,6 +77,7 @@ export default function MuleSoftJobsPage() {
       </div>
       <div className="feature-toolbar"><strong>{visible.length} openings shown</strong><span className="mulesoft-feed-state"><Layers3 size={14}/>{persisted ? "Saved feed" : "Live discovery"}</span></div>
       {notice && <p className="feature-notice" role="status">{notice}</p>}
+      {diagnostics.length > 0 && <div className="feature-notice" aria-label="Job source diagnostics"><strong>Source health</strong><ul>{diagnostics.map(item=><li key={item.provider}>{item.provider}: {item.available ? "available" : "unavailable"} · {item.fetched} fetched · {item.matched} matched</li>)}</ul></div>}
       {loading && <p className="feature-notice">Searching MuleSoft-specific job sources…</p>}
       <div className="opportunity-list">
         {visible.map(job=><article className="opportunity-card" key={job.id}>

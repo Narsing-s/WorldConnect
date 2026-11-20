@@ -29,14 +29,14 @@ export async function GET(req: NextRequest) {
   if (db) {
     const { data, error } = await db.from("wc_mulesoft_jobs").select("*")
       .eq("status", "published").order("posted_at", { ascending: false, nullsFirst: false }).limit(500);
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       const jobs = data.map(row => fromRow(row as Record<string, unknown>)).filter(job =>
         !location || location === "india" || job.location.toLowerCase().includes(location) ||
         (location === "remote" && job.remote)
       );
-      const { data: run } = await db.from("wc_mulesoft_job_sync_runs").select("completed_at")
+      const { data: run } = await db.from("wc_mulesoft_job_sync_runs").select("completed_at,provider_errors,provider_diagnostics")
         .eq("status", "completed").order("completed_at", { ascending: false }).limit(1).maybeSingle();
-      return NextResponse.json({ jobs, errors: [], updatedAt: run?.completed_at || null, persisted: true });
+      return NextResponse.json({ jobs, errors: Array.isArray(run?.provider_errors) ? run.provider_errors : [], diagnostics: Array.isArray(run?.provider_diagnostics) ? run.provider_diagnostics : [], updatedAt: run?.completed_at || null, persisted: true });
     }
   }
 

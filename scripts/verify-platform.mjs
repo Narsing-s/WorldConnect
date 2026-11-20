@@ -19,6 +19,7 @@ check("Required platform migrations exist", () => {
   for (const path of [
     "supabase/jobs-auto-sync.sql",
     "supabase/migrations/20261120_mulesoft_jobs_feed.sql",
+    "supabase/migrations/20261120_mulesoft_provider_diagnostics.sql",
     "supabase/migrations/20261116_job_application_tracker.sql",
     "supabase/migrations/20261117_candidate_job_preferences.sql",
     "supabase/migrations/20261116_worldconnect_data_integrity_guardrails.sql",
@@ -41,6 +42,9 @@ check("MuleSoft job feed is publicly readable but server-write-only", () => {
   assert.ok(sql.includes("revoke insert, update, delete"));
   assert.ok(sql.includes("grant all privileges on public.wc_mulesoft_jobs to service_role"));
   assert.match(read("app/api/jobs/mulesoft/sync/route.ts"), /JOBS_SYNC_SECRET/);
+  assert.match(read("app/api/jobs/mulesoft/sync/route.ts"), /provider_diagnostics: diagnostics/);
+  assert.match(read("app/jobs/mulesoft/page.tsx"), /Source health/);
+  assert.match(read("lib/mulesoft-job-feeds.ts"), /MuleSoft Support/);
   assert.match(read(".github/workflows/mulesoft-jobs-auto-sync.yml"), /workflow_dispatch/);
 });
 

@@ -14,7 +14,7 @@ function normalizePostedAt(value:unknown):string|null{
 }
 function matches(j:Job,q:string,l:string):boolean{const t=[j.title,j.company,j.description,...j.tags].join(" ").toLowerCase(),p=j.location.toLowerCase();return(!q||t.includes(q))&&(!l||p.includes(l)||/worldwide|anywhere/i.test(p)||(j.remote&&/remote/i.test(l)));}
 async function safeJson<T>(r:PromiseSettledResult<Response>):Promise<T|null>{if(r.status!=="fulfilled"||!r.value.ok)return null;try{return await r.value.json() as T;}catch{return null;}}
-export async function collectJobs(query="",location=""):Promise<{jobs:Job[];errors:string[]}>{
+export async function collectJobs(query="",location=""):Promise<{jobs:Job[];errors:string[];diagnostics:Array<{provider:string;fetched:number;matched:number;available:boolean}>}>{
 const rs=await Promise.allSettled([
 fetch("https://remotive.com/api/remote-jobs?search="+encodeURIComponent(query),{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)}),
 fetch("https://www.arbeitnow.com/api/job-board-api",{cache:"no-store",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)}),
@@ -65,4 +65,11 @@ if(!rem)errors.push("Remotive feed is temporarily unavailable.");if(!arb)errors.
 const unique=Array.from(new Map(jobs.map(j=>[j.url,j])).values()).sort((a,b)=>(Date.parse(b.postedAt||"")||0)-(Date.parse(a.postedAt||"")||0));
 const indiaIT=unique.filter(job=>job.source==="JobsForce India"&&/\\bit\\b|software|developer|engineer|programmer|technology|data|cloud|devops|qa|testing|network|security/i.test([job.title,...job.tags,job.description].join(" ")));
 const otherJobs=unique.filter(job=>!indiaIT.includes(job));
-return{jobs:[...indiaIT.slice(0,100),...otherJobs].slice(0,250),errors};}
+const diagnostics = [
+ {provider:"Remotive",fetched:rem?.jobs?.length||0,matched:jobs.filter(j=>j.source==="Remotive").length,available:Boolean(rem)},
+ {provider:"Arbeitnow",fetched:arb?.data?.length||0,matched:jobs.filter(j=>j.source==="Arbeitnow").length,available:Boolean(arb)},
+ {provider:"Remote OK",fetched:(rok||[]).length,matched:jobs.filter(j=>j.source==="Remote OK").length,available:Boolean(rok)},
+ {provider:"Jobicy",fetched:jcy?.jobs?.length||0,matched:jobs.filter(j=>j.source==="Jobicy").length,available:Boolean(jcy)},
+ {provider:"JobsForce India",fetched:indiaRows.length+indiaItRows.length,matched:jobs.filter(j=>j.source==="JobsForce India").length,available:Boolean(india)||indiaItRows.length>0}
+];
+return{jobs:[...indiaIT.slice(0,100),...otherJobs].slice(0,250),errors,diagnostics};}
