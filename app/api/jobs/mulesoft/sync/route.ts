@@ -27,9 +27,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create a MuleSoft sync run.", diagnostic: run.error?.message }, { status: 500 });
   }
 
+  let diagnostics: Array<{provider:string;fetched:number;matched:number;available:boolean}> = [];
+  let errors: string[] = [];
   try {
-    const { jobs, errors, diagnostics } = await collectMuleSoftJobs();
-    if (!jobs.length && errors.length >= 5) throw new Error("All discovery providers failed; existing MuleSoft listings were retained.");
+    const result = await collectMuleSoftJobs();
+    const { jobs } = result;
+    errors = result.errors;
+    diagnostics = result.diagnostics;
+    if (!jobs.length && diagnostics.every(item => !item.available)) throw new Error("All discovery providers failed; existing MuleSoft listings were retained.");
 
     let added = 0;
     let updated = 0;
@@ -70,6 +75,7 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "MuleSoft sync failed.";
     await db.from("wc_mulesoft_job_sync_runs").update({
       status: "failed", completed_at: new Date().toISOString(), error: message,
+      provider_errors: errors, provider_diagnostics: diagnostics,
     }).eq("id", run.data.id);
     return NextResponse.json({ error: message }, { status: 502 });
   }
