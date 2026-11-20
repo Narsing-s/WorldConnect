@@ -1,8 +1,9 @@
 name: WorldConnect MuleSoft openings sync
 
 on:
+  # Daily at 08:11 Asia/Kolkata (02:41 UTC); manual runs remain available.
   schedule:
-    - cron: "41 */4 * * *"
+    - cron: "41 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -59,4 +60,3 @@ jobs:
             echo "### Provider warnings"
             jq -r '(.errors // [])[] | "- " + .' "$response"
           } | tee -a "$GITHUB_STEP_SUMMARY"
-
