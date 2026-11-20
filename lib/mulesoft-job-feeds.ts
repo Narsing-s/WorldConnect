@@ -30,6 +30,7 @@ function canonicalUrl(value: string): string {
 
 export async function collectMuleSoftJobs(): Promise<{ jobs: MuleSoftJob[]; errors: string[]; diagnostics: Array<{provider:string;fetched:number;matched:number;available:boolean}> }> {
   // Fetch the broad provider catalogs once, then match MuleSoft roles locally.
+  // MuleSoft Support roles remain included alongside developer and integration roles.
   // Querying each provider with a literal "MuleSoft" string missed jobs where
   // the skill appeared in structured tags or differently formatted descriptions.
   const result = await collectJobs("", "");
